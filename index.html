@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Produção Diária</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3a5f">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0f172a; --card:#16213a; --card2:#1c2b4a; --accent:#7dd3fc; --accent2:#38bdf8;
+    --text:#e2e8f0; --muted:#8899b3; --green:#4ade80; --amber:#fbbf24; --red:#f87171;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Roboto,Segoe UI,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    padding:16px; padding-bottom:40px;
+  }
+  h1{font-size:1.3rem; margin:0 0 4px; font-weight:700;}
+  .sub{color:var(--muted); font-size:0.85rem; margin-bottom:16px;}
+  .card{
+    background:var(--card); border-radius:16px; padding:18px; margin-bottom:14px;
+    border:1px solid #223055;
+  }
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .stat-label{color:var(--muted); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:4px;}
+  .stat-value{font-size:1.7rem; font-weight:800; color:var(--accent);}
+  .stat-value.big{font-size:2.4rem;}
+  .stat-unit{font-size:0.9rem; color:var(--muted); font-weight:400;}
+  button{
+    font-family:inherit; border:none; border-radius:12px; padding:14px 16px;
+    font-size:1rem; font-weight:700; cursor:pointer;
+  }
+  .btn-primary{background:var(--accent2); color:#04263f; width:100%;}
+  .btn-secondary{background:var(--card2); color:var(--text); width:100%; border:1px solid #2c3d63;}
+  .btn-pausa-off{background:var(--card2); color:var(--text); border:1px solid #2c3d63;}
+  .btn-pausa-on{background:var(--amber); color:#3a2a00;}
+  .btn-danger{background:transparent; color:var(--red); border:1px solid #5c2c2c;}
+  input[type=number]{
+    width:100%; padding:16px; font-size:1.6rem; border-radius:12px; border:2px solid #2c3d63;
+    background:#0c1526; color:var(--text); text-align:center; font-weight:700;
+  }
+  input[type=number]:focus{outline:none; border-color:var(--accent2);}
+  .row{display:flex; gap:10px;}
+  .row > *{flex:1;}
+  .history{max-height:220px; overflow-y:auto;}
+  .history-item{
+    display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #223055;
+    font-size:0.9rem;
+  }
+  .history-item:last-child{border-bottom:none;}
+  .history-time{color:var(--muted);}
+  .history-delta{color:var(--green); font-size:0.8rem;}
+  .badge{
+    display:inline-block; background:#0c2a3f; color:var(--accent); padding:3px 10px;
+    border-radius:20px; font-size:0.75rem; font-weight:700; margin-bottom:2px;
+  }
+  .empty-state{text-align:center; padding:30px 10px; color:var(--muted);}
+  .setup input{margin-bottom:14px;}
+  .footer-note{color:var(--muted); font-size:0.75rem; text-align:center; margin-top:20px; line-height:1.5;}
+  .toast{
+    position:fixed; bottom:20px; left:16px; right:16px; background:var(--green); color:#04310f;
+    padding:14px; border-radius:12px; font-weight:700; text-align:center;
+    transform:translateY(100px); opacity:0; transition:all 0.3s; z-index:100;
+  }
+  .toast.show{transform:translateY(0); opacity:1;}
+  .perm-banner{
+    background:#3a2a00; border:1px solid var(--amber); color:var(--amber);
+    padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:14px;
+  }
+  .perm-banner button{margin-top:8px; padding:10px; font-size:0.85rem;}
+</style>
+</head>
+<body>
+
+<h1>🪵 Produção Diária</h1>
+<div class="sub" id="headerSub">A carregar…</div>
+
+<div id="permBanner" class="perm-banner" style="display:none;">
+  Ative as notificações para receber o lembrete a cada hora.
+  <button class="btn-primary" id="btnEnableNotif">Ativar notificações</button>
+</div>
+
+<div id="app"></div>
+
+<div class="footer-note">
+  Nota: os lembretes horários funcionam melhor com a app aberta ou em segundo plano recente.
+  Se o telemóvel poupar bateria de forma agressiva, abra a app de vez em quando para "apanhar"
+  lembretes em atraso.
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SHIFTS = [
+  { id: 'manha', label: '05:00–14:00', startH: 5, endH: 14 },
+  { id: 'tarde', label: '14:00–23:00', startH: 14, endH: 23 }
+];
+const SHIFT_LENGTH_H = 9;
+const BREAK_H = 0.5;
+
+function todayKey(d = new Date()) {
+  return 'prod-' + d.toISOString().slice(0,10);
+}
+function loadState() {
+  const raw = localStorage.getItem(todayKey());
+  return raw ? JSON.parse(raw) : null;
+}
+function saveState(s) {
+  localStorage.setItem(todayKey(), JSON.stringify(s));
+}
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+}
+function detectShift(date) {
+  const h = date.getHours() + date.getMinutes() / 60;
+  for (const s of SHIFTS) {
+    if (h >= s.startH && h < s.endH) return s;
+  }
+  // fora das janelas (23h-05h): assume o turno mais próximo do início
+  return h < 5 ? SHIFTS[0] : SHIFTS[1];
+}
+function shiftStartDate(shift, refDate) {
+  const d = new Date(refDate);
+  d.setHours(shift.startH, 0, 0, 0);
+  return d;
+}
+
+let state = loadState();
+let swReg = null;
+let reminderTimeout = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const header = document.getElementById('headerSub');
+
+  if (!state) {
+    header.textContent = 'Primeiro registo do dia';
+    app.innerHTML = `
+      <div class="card setup">
+        <div class="stat-label">Valor atual do contador (metros)</div>
+        <input type="number" id="firstValue" inputmode="numeric" step="1" min="0" placeholder="ex: 120">
+        <button class="btn-primary" id="btnFirstLog">Registar e começar turno</button>
+      </div>
+    `;
+    document.getElementById('btnFirstLog').onclick = () => {
+      const val = parseInt(document.getElementById('firstValue').value, 10);
+      if (isNaN(val) || val < 0) { showToast('Introduza um valor válido'); return; }
+      const now = new Date();
+      const shift = detectShift(now);
+      state = {
+        date: todayKey(),
+        turnoId: shift.id,
+        turnoLabel: shift.label,
+        shiftStart: shiftStartDate(shift, now).getTime(),
+        pausa: false,
+        logs: [{ time: now.getTime(), value: val }],
+        nextReminder: now.getTime() + 3600000
+      };
+      saveState(state);
+      requestNotifPermissionIfNeeded();
+      scheduleNextReminder();
+      render();
+    };
+    return;
+  }
+
+  const shift = SHIFTS.find(s => s.id === state.turnoId);
+  const shiftStart = state.shiftStart;
+  const shiftEnd = shiftStart + SHIFT_LENGTH_H * 3600000;
+  const now = Date.now();
+  const lastLog = state.logs[state.logs.length - 1];
+  const totalMetros = lastLog.value;
+
+  const elapsedRealH = Math.min(Math.max((now - shiftStart) / 3600000, 0), SHIFT_LENGTH_H);
+  const effShiftH = SHIFT_LENGTH_H - (state.pausa ? BREAK_H : 0);
+  const effElapsedH = Math.max(elapsedRealH - (state.pausa ? BREAK_H : 0), 0.02);
+  const rate = totalMetros / effElapsedH;
+  const remainingEffH = Math.max(effShiftH - effElapsedH, 0);
+  const prediction = Math.round(totalMetros + rate * remainingEffH);
+  const isShiftOver = now >= shiftEnd;
+
+  header.innerHTML = `Turno <b>${state.turnoLabel}</b> · início às ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--amber)">turno terminado</span>' : ''}`;
+
+  const historyHtml = state.logs.slice().reverse().map((log, idx) => {
+    const revIdx = state.logs.length - 1 - idx;
+    const prev = revIdx > 0 ? state.logs[revIdx - 1].value : 0;
+    const delta = log.value - prev;
+    return `<div class="history-item">
+      <span class="history-time">${fmtTime(log.time)}</span>
+      <span>${log.value} m</span>
+      <span class="history-delta">${revIdx > 0 ? (delta >= 0 ? '+' : '') + delta + ' m' : '—'}</span>
+    </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="grid2">
+        <div>
+          <div class="stat-label">Total hoje</div>
+          <div class="stat-value big">${totalMetros}<span class="stat-unit"> m</span></div>
+        </div>
+        <div>
+          <div class="stat-label">Média m/hora</div>
+          <div class="stat-value">${rate.toFixed(1)}<span class="stat-unit"> m/h</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stat-label">Previsão até ao fim do turno (${shift.label.split('–')[1]})</div>
+      <div class="stat-value big" style="color:var(--green)">${prediction}<span class="stat-unit"> m</span></div>
+    </div>
+
+    <div class="card">
+      <div class="stat-label">Novo registo (valor total acumulado)</div>
+      <input type="number" id="newValue" inputmode="numeric" step="1" min="0" placeholder="ex: ${totalMetros}">
+      <button class="btn-primary" id="btnAddLog">Registar</button>
+    </div>
+
+    <div class="card">
+      <button class="${state.pausa ? 'btn-pausa-on' : 'btn-pausa-off'}" id="btnPausa" style="width:100%">
+        ${state.pausa ? '☕ Pausa registada (−30 min)' : 'Marcar pausa de 30 min'}
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="stat-label" style="margin-bottom:8px;">Histórico de hoje</div>
+      <div class="history">${historyHtml || '<div class="empty-state">Sem registos</div>'}</div>
+    </div>
+
+    <button class="btn-danger" id="btnReset" style="width:100%; margin-top:6px;">Terminar / limpar dia</button>
+  `;
+
+  document.getElementById('btnAddLog').onclick = () => {
+    const val = parseInt(document.getElementById('newValue').value, 10);
+    if (isNaN(val) || val < 0) { showToast('Introduza um valor válido'); return; }
+    addLog(val);
+  };
+  document.getElementById('btnPausa').onclick = () => {
+    state.pausa = !state.pausa;
+    saveState(state);
+    render();
+  };
+  document.getElementById('btnReset').onclick = () => {
+    if (confirm('Limpar todos os registos de hoje?')) {
+      localStorage.removeItem(todayKey());
+      state = null;
+      if (reminderTimeout) clearTimeout(reminderTimeout);
+      render();
+    }
+  };
+}
+
+function addLog(val) {
+  const now = Date.now();
+  state.logs.push({ time: now, value: val });
+  saveState(state);
+  showToast('Registado: ' + val + ' m');
+  scheduleNextReminder(true);
+  render();
+}
+
+// ---- Reminders ----
+function scheduleNextReminder(justLogged) {
+  if (!state) return;
+  const now = Date.now();
+  const shiftEnd = state.shiftStart + SHIFT_LENGTH_H * 3600000;
+
+  if (justLogged) {
+    state.nextReminder = now + 3600000;
+    saveState(state);
+  }
+
+  if (reminderTimeout) clearTimeout(reminderTimeout);
+  if (state.nextReminder >= shiftEnd) return; // turno acabou, sem mais lembretes
+
+  const delay = Math.max(state.nextReminder - now, 1000);
+  reminderTimeout = setTimeout(() => {
+    fireReminder();
+  }, delay);
+}
+
+function fireReminder() {
+  if (!state) return;
+  if (swReg && Notification.permission === 'granted') {
+    swReg.active && swReg.active.postMessage({ type: 'SHOW_LOG_REMINDER' });
+  } else if (Notification.permission === 'granted') {
+    new Notification('Registo de produção', { body: 'Hora de registar o valor de metros.' });
+  } else {
+    showToast('Hora de registar o valor de metros!');
+  }
+  state.nextReminder = Date.now() + 3600000;
+  saveState(state);
+  scheduleNextReminder(false);
+}
+
+// Catch up on reminders missed while app was closed
+function catchUpReminders() {
+  if (!state) return;
+  const shiftEnd = state.shiftStart + SHIFT_LENGTH_H * 3600000;
+  const now = Date.now();
+  if (state.nextReminder && state.nextReminder <= now && now < shiftEnd) {
+    fireReminder();
+  } else {
+    scheduleNextReminder(false);
+  }
+}
+
+// ---- Notifications setup ----
+function requestNotifPermissionIfNeeded() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    document.getElementById('permBanner').style.display = 'block';
+  }
+}
+
+document.getElementById('btnEnableNotif').onclick = async () => {
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    document.getElementById('permBanner').style.display = 'none';
+    showToast('Notificações ativadas');
+  }
+};
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js').then(reg => {
+    swReg = reg;
+  }).catch(() => {});
+
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'NOTIFICATION_LOG') {
+      const val = parseInt(event.data.value, 10);
+      if (!isNaN(val) && val >= 0 && state) {
+        addLog(val);
+      }
+    }
+  });
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    catchUpReminders();
+    render();
+  }
+});
+
+// init
+requestNotifPermissionIfNeeded();
+render();
+if (state) scheduleNextReminder(false);
+setInterval(render, 30000);
+</script>
+</body>
+</html>
