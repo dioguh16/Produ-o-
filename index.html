@@ -5,19 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Produção Diária HBW</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#e9dab8">
+<meta name="theme-color" content="#c3b59e">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
-    --wood:#efe3c8; --wood2:#e7d7ae; --paper:#fffcf5; --paper2:#f7ecd4; --line:#ddc99b;
-    --ink:#2e2417; --muted:#8a795c;
-    --accent:#6b4f2a; --accent-dark:#543c1f; --accent-contrast:#fbf5e6;
+    --paper:#ffffff; --paper2:#f4efe4; --line:#e2d8c4;
+    --ink:#181511; --muted:#8a8074;
+    --accent:#181511; --accent-dark:#000000; --accent-contrast:#ffffff;
+    --beige:#c3b59e; --beige-dark:#a89877;
     --pos:#5c7a4a; --neg:#a24f3a;
   }
   *{box-sizing:border-box;}
   body{
     margin:0; font-family:-apple-system,Roboto,Segoe UI,sans-serif;
-    background:linear-gradient(180deg,var(--wood),var(--wood2)); background-attachment:fixed;
+    background:var(--paper);
     color:var(--ink); min-height:100vh; padding:0 16px 40px;
   }
   .topbar{
@@ -26,7 +27,7 @@
   }
   .brand{display:flex; flex-direction:column; line-height:1.1;}
   .brand .word1{font-size:1.25rem; font-weight:800; letter-spacing:0.02em; color:var(--ink);}
-  .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--accent); text-transform:uppercase;}
+  .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--beige-dark); text-transform:uppercase;}
   .menu-btn{
     background:var(--paper); border:1px solid var(--line); color:var(--accent);
     width:42px; height:42px; border-radius:10px; cursor:pointer;
@@ -40,7 +41,8 @@
     border:1px solid var(--line); box-shadow:0 1px 3px rgba(60,45,20,0.06);
   }
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
-  .stat-label{color:var(--muted); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:4px;}
+  .stat-label{color:var(--beige-dark); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:4px; font-weight:700;}
+  .stat-label::before{content:"// "; color:var(--beige-dark);}
   .stat-value{font-size:1.7rem; font-weight:800; color:var(--accent);}
   .stat-value.big{font-size:2.4rem;}
   .stat-unit{font-size:0.9rem; color:var(--muted); font-weight:400;}
@@ -51,7 +53,7 @@
   .btn-primary{background:var(--accent); color:var(--accent-contrast); width:100%;}
   .btn-secondary{background:var(--paper2); color:var(--ink); width:100%; border:1px solid var(--line);}
   .btn-pausa-off{background:var(--paper2); color:var(--ink); border:1px solid var(--line);}
-  .btn-pausa-on{background:var(--accent); color:var(--accent-contrast);}
+  .btn-pausa-on{background:var(--beige); color:var(--ink);}
   .btn-danger{background:transparent; color:var(--neg); border:1px solid #d9b3a3;}
   input[type=number], textarea{
     width:100%; padding:14px; font-size:1.1rem; border-radius:12px; border:2px solid var(--line);
@@ -85,7 +87,7 @@
   }
   .toast.show{transform:translateY(0); opacity:1;}
   .perm-banner{
-    background:var(--paper2); border:1px solid var(--accent); color:var(--accent-dark);
+    background:var(--paper2); border:1px solid var(--beige-dark); color:var(--ink);
     padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:14px;
   }
   .perm-banner button{margin-top:8px; padding:10px; font-size:0.85rem;}
@@ -102,7 +104,8 @@
     padding:20px; overflow-y:auto;
   }
   .drawer.open{transform:translateX(0);}
-  .drawer h2{color:var(--accent); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.78rem;}
+  .drawer h2{color:var(--beige-dark); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.78rem; font-weight:700;}
+  .drawer h2::before{content:"// ";}
   .drawer h2:first-child{margin-top:0;}
   .lang-toggle{display:flex; gap:8px; margin-bottom:6px;}
   .lang-toggle button{flex:1; padding:10px;}
@@ -120,7 +123,14 @@
   .day-list-item{
     display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); cursor:pointer;
   }
-  .close-drawer{background:var(--paper2); border:1px solid var(--line); color:var(--ink); width:36px; height:36px; border-radius:8px; float:right;}
+  .close-drawer{
+    background:var(--paper2); border:1px solid var(--line); width:36px; height:36px; border-radius:8px; float:right;
+    display:flex; align-items:center; justify-content:center; padding:0;
+  }
+  .x-icon{ position:relative; width:14px; height:14px; }
+  .x-icon i{ position:absolute; top:50%; left:0; width:100%; height:2px; background:var(--ink); border-radius:1px; }
+  .x-icon i:first-child{ transform:translateY(-50%) rotate(45deg); }
+  .x-icon i:last-child{ transform:translateY(-50%) rotate(-45deg); }
   .back-link{color:var(--accent); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
 </style>
 </head>
@@ -146,7 +156,7 @@
 
 <div class="overlay" id="overlay"></div>
 <div class="drawer" id="drawer">
-  <button class="close-drawer" id="btnCloseDrawer">✕</button>
+  <button class="close-drawer" id="btnCloseDrawer"><span class="x-icon"><i></i><i></i></span></button>
   <div id="drawerContent"></div>
 </div>
 
@@ -279,12 +289,11 @@ function shiftStartDate(shift, refDate) {
 }
 
 function computeDayStats(s) {
-  const shiftStart = s.shiftStart;
   const lastLog = s.logs[s.logs.length - 1];
   const total = lastLog.value;
-  const elapsedRealH = Math.max((lastLog.time - shiftStart) / 3600000, 0.02);
-  const rate = total / elapsedRealH;
-  return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: elapsedRealH };
+  const effShiftH = SHIFT_LENGTH_H - (s.pausa ? BREAK_H : 0);
+  const rate = total / effShiftH;
+  return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: effShiftH };
 }
 
 function scanAllDays() {
