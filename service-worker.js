@@ -1,4 +1,4 @@
-const CACHE = 'producao-v5';
+const CACHE = 'producao-v6';
 const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 let currentLang = 'pt';
@@ -14,7 +14,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(names =>
+      Promise.all(names.filter(n => n !== CACHE).map(n => caches.delete(n)))
+    ).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {

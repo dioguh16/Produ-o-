@@ -689,7 +689,20 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('service-worker.js').then(reg => {
     swReg = reg;
     if (reg.active) reg.active.postMessage({ type: 'SET_LANG', lang: lang() });
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (newWorker) newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'activated') window.location.reload();
+      });
+    });
   }).catch(() => {});
+
+  let refreshedOnce = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshedOnce) return;
+    refreshedOnce = true;
+    window.location.reload();
+  });
 
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'NOTIFICATION_LOG') {
