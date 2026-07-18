@@ -25,7 +25,7 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:18px 0 10px; border-bottom:1px solid var(--line); margin-bottom:16px;
   }
-  .brand{display:flex; flex-direction:column; line-height:1.1;}
+  .brand{display:flex; align-items:center; min-height:34px;}
   .brand .word1{font-size:1.25rem; font-weight:800; letter-spacing:0.02em; color:var(--ink);}
   .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--beige-dark); text-transform:uppercase;}
   .menu-btn{
@@ -137,9 +137,13 @@
 <body>
 
 <div class="topbar">
-  <div class="brand">
-    <span class="word1">HolzBauWerk</span>
-    <span class="word2">Schwarzwald</span>
+  <div class="brand" id="brandArea">
+    <img src="logo.png" alt="HolzBauWerk Schwarzwald" id="logoImg" style="height:34px; display:block;"
+         onerror="this.style.display='none'; document.getElementById('brandText').style.display='flex';">
+    <div id="brandText" style="display:none; flex-direction:column; line-height:1.1;">
+      <span class="word1">HolzBauWerk</span>
+      <span class="word2">Schwarzwald</span>
+    </div>
   </div>
   <button class="menu-btn" id="btnMenu"><span class="hamburger"><i></i><i></i><i></i></span></button>
 </div>
