@@ -1,5 +1,12 @@
-const CACHE = 'producao-v1';
+const CACHE = 'producao-v2';
 const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+
+let currentLang = 'pt';
+
+const NOTIF_TEXT = {
+  pt: { title: 'Registo de produção', body: 'Qual o valor total de metros até agora?', action: 'Registar valor', ph: 'metros', savedTitle: 'Valor guardado', savedBody: (v) => `Registado ${v} m — abra a app para confirmar.` },
+  de: { title: 'Produktionserfassung', body: 'Wie viele Meter insgesamt bisher?', action: 'Wert erfassen', ph: 'Meter', savedTitle: 'Wert gespeichert', savedBody: (v) => `${v} m erfasst — App öffnen zum Bestätigen.` }
+};
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -16,26 +23,29 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Show a notification with a text-reply action (asks directly for the meter value)
 self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SET_LANG') {
+    currentLang = event.data.lang === 'de' ? 'de' : 'pt';
+  }
   if (event.data && event.data.type === 'SHOW_LOG_REMINDER') {
-    self.registration.showNotification('Registo de produção', {
-      body: 'Qual o valor total de metros até agora?',
+    const t = NOTIF_TEXT[currentLang];
+    self.registration.showNotification(t.title, {
+      body: t.body,
       tag: 'hourly-log',
       renotify: true,
       requireInteraction: true,
       icon: 'icon-192.png',
       actions: [
-        { action: 'log', type: 'text', title: 'Registar valor', placeholder: 'metros' }
+        { action: 'log', type: 'text', title: t.action, placeholder: t.ph }
       ],
       data: { time: Date.now() }
     });
   }
 });
 
-// Handle the reply typed directly in the notification
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const t = NOTIF_TEXT[currentLang];
 
   if (event.action === 'log' && event.reply) {
     const value = event.reply.trim();
@@ -45,9 +55,8 @@ self.addEventListener('notificationclick', (event) => {
           clients[0].postMessage({ type: 'NOTIFICATION_LOG', value });
           clients[0].focus();
         } else {
-          // No page open: stash it so the page can pick it up when it opens
-          return self.registration.showNotification('Valor guardado', {
-            body: `Registado ${value} m — abra a app para confirmar.`,
+          return self.registration.showNotification(t.savedTitle, {
+            body: t.savedBody(value),
             tag: 'pending-log',
             icon: 'icon-192.png',
             data: { pendingValue: value }
@@ -56,7 +65,6 @@ self.addEventListener('notificationclick', (event) => {
       })
     );
   } else {
-    // Plain tap: just open/focus the app
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
         if (clients.length > 0) return clients[0].focus();
