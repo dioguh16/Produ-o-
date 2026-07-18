@@ -29,8 +29,11 @@
   .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--accent); text-transform:uppercase;}
   .menu-btn{
     background:var(--paper); border:1px solid var(--line); color:var(--accent);
-    width:42px; height:42px; border-radius:10px; font-size:1.3rem; cursor:pointer;
+    width:42px; height:42px; border-radius:10px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
   }
+  .hamburger{ display:flex; flex-direction:column; justify-content:space-between; width:18px; height:13px; }
+  .hamburger i{ display:block; height:2px; width:100%; background:var(--accent); border-radius:1px; }
   .sub{color:var(--muted); font-size:0.85rem; margin-bottom:16px;}
   .card{
     background:var(--paper); border-radius:16px; padding:18px; margin-bottom:14px;
@@ -128,7 +131,7 @@
     <span class="word1">HolzBauWerk</span>
     <span class="word2">Schwarzwald</span>
   </div>
-  <button class="menu-btn" id="btnMenu">☰</button>
+  <button class="menu-btn" id="btnMenu"><span class="hamburger"><i></i><i></i><i></i></span></button>
 </div>
 
 <div class="sub" id="headerSub">…</div>
@@ -188,7 +191,9 @@ const STR = {
     editPrompt: 'Novo valor (metros):',
     confirmDeleteLog: 'Apagar este registo?',
     notesLabel: 'Notas do dia',
-    notesPlaceholder: 'ex: paragem na linha 2, madeira húmida, etc.'
+    notesPlaceholder: 'ex: paragem na linha 2, madeira húmida, etc.',
+    hoursLabel: 'Horas efetivas',
+    pausaSince: 'desde'
   },
   de: {
     firstLogTitle: 'Erste Erfassung des Tages',
@@ -229,7 +234,9 @@ const STR = {
     editPrompt: 'Neuer Wert (Meter):',
     confirmDeleteLog: 'Diesen Eintrag löschen?',
     notesLabel: 'Notizen zum Tag',
-    notesPlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz, usw.'
+    notesPlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz, usw.',
+    hoursLabel: 'Effektive Stunden',
+    pausaSince: 'seit'
   }
 };
 
@@ -275,10 +282,9 @@ function computeDayStats(s) {
   const shiftStart = s.shiftStart;
   const lastLog = s.logs[s.logs.length - 1];
   const total = lastLog.value;
-  const elapsedRealH = Math.min(Math.max((lastLog.time - shiftStart) / 3600000, 0), SHIFT_LENGTH_H);
-  const effElapsedH = Math.max(elapsedRealH - (s.pausa ? BREAK_H : 0), 0.02);
-  const rate = total / effElapsedH;
-  return { total, rate, turnoLabel: s.turnoLabel };
+  const elapsedRealH = Math.max((lastLog.time - shiftStart) / 3600000, 0.02);
+  const rate = total / elapsedRealH;
+  return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: elapsedRealH };
 }
 
 function scanAllDays() {
@@ -400,11 +406,10 @@ function renderMain() {
   const lastLog = state.logs[state.logs.length - 1];
   const totalMetros = lastLog.value;
 
-  const elapsedRealH = Math.min(Math.max((now - shiftStart) / 3600000, 0), SHIFT_LENGTH_H);
+  const elapsedRealH = Math.max((now - shiftStart) / 3600000, 0.02);
   const effShiftH = SHIFT_LENGTH_H - (state.pausa ? BREAK_H : 0);
-  const effElapsedH = Math.max(elapsedRealH - (state.pausa ? BREAK_H : 0), 0.02);
-  const rate = totalMetros / effElapsedH;
-  const remainingEffH = Math.max(effShiftH - effElapsedH, 0);
+  const rate = totalMetros / elapsedRealH;
+  const remainingEffH = Math.max(effShiftH - elapsedRealH, 0);
   const prediction = Math.round(totalMetros + rate * remainingEffH);
   const isShiftOver = now >= shiftEnd;
 
@@ -421,6 +426,10 @@ function renderMain() {
           <div class="stat-label">${t('avgRate')}</div>
           <div class="stat-value">${rate.toFixed(1)}<span class="stat-unit"> m/h</span></div>
         </div>
+      </div>
+      <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--line);">
+        <div class="stat-label">${t('hoursLabel')}</div>
+        <div class="stat-value" style="font-size:1.1rem;">${elapsedRealH.toFixed(1)} h<span class="stat-unit"> / ${effShiftH.toFixed(1)} h ${state.turnoLabel}</span></div>
       </div>
     </div>
 
@@ -463,6 +472,7 @@ function renderMain() {
   };
   document.getElementById('btnPausa').onclick = () => {
     state.pausa = !state.pausa;
+    state.pausaAt = state.pausa ? Date.now() : null;
     saveState(state);
     renderMain();
   };
@@ -604,6 +614,7 @@ function renderDrawer() {
         <div><div class="stat-label">${t('dayDetailTotal')}</div><div class="stat-value">${stats.total} m</div></div>
         <div><div class="stat-label">${t('dayDetailAvg')}</div><div class="stat-value">${stats.rate.toFixed(1)} m/h</div></div>
       </div>
+      <div style="margin-bottom:14px;"><div class="stat-label">${t('hoursLabel')}</div><div class="stat-value" style="font-size:1.1rem;">${stats.hoursEfetivas.toFixed(1)} h</div></div>
       <div class="history" id="dayDetailHistory">${buildHistoryHtml(s.logs, 'dayDetailHistory', false, viewingDayKey)}</div>
       <h2>${t('notesLabel')}</h2>
       <textarea id="dayDetailNotes" placeholder="${t('notesPlaceholder')}">${s.notes || ''}</textarea>
