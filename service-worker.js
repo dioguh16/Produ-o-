@@ -1,4 +1,4 @@
-const CACHE = 'producao-v2';
+const CACHE = 'producao-v5';
 const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 let currentLang = 'pt';
