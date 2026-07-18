@@ -5,111 +5,120 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Produção Diária HBW</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#111010">
+<meta name="theme-color" content="#e9dab8">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root{
-    --bg:#0b0b0a; --card:#171512; --card2:#1f1c18; --line:#2b2620;
-    --beige:#d8c9a3; --beige-dark:#b8a679; --white:#f5f2ea; --muted:#8f877a;
-    --pos:#c9b98a; --neg:#a67c6a;
+    --wood:#efe3c8; --wood2:#e7d7ae; --paper:#fffcf5; --paper2:#f7ecd4; --line:#ddc99b;
+    --ink:#2e2417; --muted:#8a795c;
+    --accent:#6b4f2a; --accent-dark:#543c1f; --accent-contrast:#fbf5e6;
+    --pos:#5c7a4a; --neg:#a24f3a;
   }
   *{box-sizing:border-box;}
   body{
     margin:0; font-family:-apple-system,Roboto,Segoe UI,sans-serif;
-    background:var(--bg); color:var(--white); min-height:100vh;
-    padding:0 16px 40px;
+    background:linear-gradient(180deg,var(--wood),var(--wood2)); background-attachment:fixed;
+    color:var(--ink); min-height:100vh; padding:0 16px 40px;
   }
   .topbar{
     display:flex; align-items:center; justify-content:space-between;
     padding:18px 0 10px; border-bottom:1px solid var(--line); margin-bottom:16px;
   }
   .brand{display:flex; flex-direction:column; line-height:1.1;}
-  .brand .word1{font-size:1.25rem; font-weight:800; letter-spacing:0.02em; color:var(--white);}
-  .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--beige); text-transform:uppercase;}
+  .brand .word1{font-size:1.25rem; font-weight:800; letter-spacing:0.02em; color:var(--ink);}
+  .brand .word2{font-size:0.7rem; font-weight:600; letter-spacing:0.15em; color:var(--accent); text-transform:uppercase;}
   .menu-btn{
-    background:var(--card2); border:1px solid var(--line); color:var(--beige);
+    background:var(--paper); border:1px solid var(--line); color:var(--accent);
     width:42px; height:42px; border-radius:10px; font-size:1.3rem; cursor:pointer;
   }
   .sub{color:var(--muted); font-size:0.85rem; margin-bottom:16px;}
   .card{
-    background:var(--card); border-radius:16px; padding:18px; margin-bottom:14px;
-    border:1px solid var(--line);
+    background:var(--paper); border-radius:16px; padding:18px; margin-bottom:14px;
+    border:1px solid var(--line); box-shadow:0 1px 3px rgba(60,45,20,0.06);
   }
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .stat-label{color:var(--muted); font-size:0.78rem; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:4px;}
-  .stat-value{font-size:1.7rem; font-weight:800; color:var(--beige);}
+  .stat-value{font-size:1.7rem; font-weight:800; color:var(--accent);}
   .stat-value.big{font-size:2.4rem;}
   .stat-unit{font-size:0.9rem; color:var(--muted); font-weight:400;}
   button{
     font-family:inherit; border:none; border-radius:12px; padding:14px 16px;
     font-size:1rem; font-weight:700; cursor:pointer;
   }
-  .btn-primary{background:var(--beige); color:#1a1712; width:100%;}
-  .btn-secondary{background:var(--card2); color:var(--white); width:100%; border:1px solid var(--line);}
-  .btn-pausa-off{background:var(--card2); color:var(--white); border:1px solid var(--line);}
-  .btn-pausa-on{background:var(--beige-dark); color:#1a1712;}
-  .btn-danger{background:transparent; color:var(--neg); border:1px solid #3a2620;}
-  input[type=number]{
-    width:100%; padding:16px; font-size:1.6rem; border-radius:12px; border:2px solid var(--line);
-    background:#0c0b09; color:var(--white); text-align:center; font-weight:700;
+  .btn-primary{background:var(--accent); color:var(--accent-contrast); width:100%;}
+  .btn-secondary{background:var(--paper2); color:var(--ink); width:100%; border:1px solid var(--line);}
+  .btn-pausa-off{background:var(--paper2); color:var(--ink); border:1px solid var(--line);}
+  .btn-pausa-on{background:var(--accent); color:var(--accent-contrast);}
+  .btn-danger{background:transparent; color:var(--neg); border:1px solid #d9b3a3;}
+  input[type=number], textarea{
+    width:100%; padding:14px; font-size:1.1rem; border-radius:12px; border:2px solid var(--line);
+    background:var(--paper); color:var(--ink); font-family:inherit;
   }
-  input[type=number]:focus{outline:none; border-color:var(--beige);}
-  .history{max-height:220px; overflow-y:auto;}
+  input[type=number]{font-size:1.6rem; text-align:center; font-weight:700;}
+  input[type=number]:focus, textarea:focus{outline:none; border-color:var(--accent);}
+  textarea{resize:vertical; min-height:70px; font-weight:400; font-size:0.95rem;}
+  .history{max-height:260px; overflow-y:auto;}
   .history-item{
-    display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);
-    font-size:0.9rem;
+    display:flex; align-items:center; justify-content:space-between; padding:8px 0;
+    border-bottom:1px solid var(--line); font-size:0.9rem; gap:8px;
   }
   .history-item:last-child{border-bottom:none;}
-  .history-time{color:var(--muted);}
-  .history-delta{color:var(--pos); font-size:0.8rem;}
+  .history-time{color:var(--muted); flex-shrink:0;}
+  .history-val{flex:1; text-align:right; padding-right:4px;}
+  .history-delta{color:var(--pos); font-size:0.8rem; flex-shrink:0; min-width:48px; text-align:right;}
+  .history-actions{display:flex; gap:4px; flex-shrink:0;}
+  .icon-btn{
+    background:var(--paper2); border:1px solid var(--line); color:var(--ink);
+    width:30px; height:30px; padding:0; border-radius:8px; font-size:0.85rem; line-height:1;
+  }
+  .icon-btn.delete{color:var(--neg);}
   .empty-state{text-align:center; padding:30px 10px; color:var(--muted);}
   .setup input{margin-bottom:14px;}
   .footer-note{color:var(--muted); font-size:0.75rem; text-align:center; margin-top:20px; line-height:1.5;}
   .toast{
-    position:fixed; bottom:20px; left:16px; right:16px; background:var(--beige); color:#1a1712;
+    position:fixed; bottom:20px; left:16px; right:16px; background:var(--accent); color:var(--accent-contrast);
     padding:14px; border-radius:12px; font-weight:700; text-align:center;
     transform:translateY(100px); opacity:0; transition:all 0.3s; z-index:200;
   }
   .toast.show{transform:translateY(0); opacity:1;}
   .perm-banner{
-    background:var(--card2); border:1px solid var(--beige-dark); color:var(--beige);
+    background:var(--paper2); border:1px solid var(--accent); color:var(--accent-dark);
     padding:12px; border-radius:12px; font-size:0.85rem; margin-bottom:14px;
   }
   .perm-banner button{margin-top:8px; padding:10px; font-size:0.85rem;}
 
-  /* Drawer menu */
   .overlay{
-    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:300;
+    position:fixed; inset:0; background:rgba(30,22,10,0.45); z-index:300;
     opacity:0; pointer-events:none; transition:opacity 0.25s;
   }
   .overlay.open{opacity:1; pointer-events:auto;}
   .drawer{
     position:fixed; top:0; right:0; bottom:0; width:82%; max-width:340px;
-    background:var(--card); border-left:1px solid var(--line);
+    background:var(--paper); border-left:1px solid var(--line);
     transform:translateX(100%); transition:transform 0.25s; z-index:301;
     padding:20px; overflow-y:auto;
   }
   .drawer.open{transform:translateX(0);}
-  .drawer h2{font-size:1rem; color:var(--beige); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.78rem;}
+  .drawer h2{color:var(--accent); margin:18px 0 10px; text-transform:uppercase; letter-spacing:0.05em; font-size:0.78rem;}
   .drawer h2:first-child{margin-top:0;}
   .lang-toggle{display:flex; gap:8px; margin-bottom:6px;}
   .lang-toggle button{flex:1; padding:10px;}
-  .lang-toggle button.active{background:var(--beige); color:#1a1712;}
-  .lang-toggle button:not(.active){background:var(--card2); color:var(--white); border:1px solid var(--line);}
+  .lang-toggle button.active{background:var(--accent); color:var(--accent-contrast);}
+  .lang-toggle button:not(.active){background:var(--paper2); color:var(--ink); border:1px solid var(--line);}
   .menu-item{
     display:flex; justify-content:space-between; align-items:center;
-    padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer; color:var(--white);
+    padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer; color:var(--ink);
   }
   .menu-item .arrow{color:var(--muted);}
   .record-row{display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line);}
   .record-row:last-child{border-bottom:none;}
-  .record-val{color:var(--beige); font-weight:800;}
+  .record-val{color:var(--accent); font-weight:800;}
   .record-date{color:var(--muted); font-size:0.78rem;}
   .day-list-item{
     display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); cursor:pointer;
   }
-  .close-drawer{background:var(--card2); border:1px solid var(--line); color:var(--white); width:36px; height:36px; border-radius:8px; float:right;}
-  .back-link{color:var(--beige); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
+  .close-drawer{background:var(--paper2); border:1px solid var(--line); color:var(--ink); width:36px; height:36px; border-radius:8px; float:right;}
+  .back-link{color:var(--accent); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
 </style>
 </head>
 <body>
@@ -175,7 +184,11 @@ const STR = {
     noRecordsYet: 'Ainda sem dados suficientes',
     dayDetailTotal: 'Total',
     dayDetailAvg: 'Média m/h',
-    dayDetailTurno: 'Turno'
+    dayDetailTurno: 'Turno',
+    editPrompt: 'Novo valor (metros):',
+    confirmDeleteLog: 'Apagar este registo?',
+    notesLabel: 'Notas do dia',
+    notesPlaceholder: 'ex: paragem na linha 2, madeira húmida, etc.'
   },
   de: {
     firstLogTitle: 'Erste Erfassung des Tages',
@@ -212,7 +225,11 @@ const STR = {
     noRecordsYet: 'Noch nicht genug Daten',
     dayDetailTotal: 'Gesamt',
     dayDetailAvg: 'Ø m/h',
-    dayDetailTurno: 'Schicht'
+    dayDetailTurno: 'Schicht',
+    editPrompt: 'Neuer Wert (Meter):',
+    confirmDeleteLog: 'Diesen Eintrag löschen?',
+    notesLabel: 'Notizen zum Tag',
+    notesPlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz, usw.'
   }
 };
 
@@ -236,7 +253,8 @@ function loadState(key) {
   const raw = localStorage.getItem(key || todayKey());
   return raw ? JSON.parse(raw) : null;
 }
-function saveState(s) { localStorage.setItem(todayKey(), JSON.stringify(s)); }
+function saveDayState(key, s) { localStorage.setItem(key, JSON.stringify(s)); }
+function saveState(s) { saveDayState(todayKey(), s); }
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); }
 function fmtDate(dateStr) {
   const [y,m,d] = dateStr.split('-');
@@ -269,9 +287,7 @@ function scanAllDays() {
     const key = localStorage.key(i);
     if (key && key.startsWith(DAY_PREFIX)) {
       const s = JSON.parse(localStorage.getItem(key));
-      if (s && s.logs && s.logs.length) {
-        days.push({ key, dateStr: key.slice(DAY_PREFIX.length), state: s });
-      }
+      if (s && s.logs && s.logs.length) days.push({ key, dateStr: key.slice(DAY_PREFIX.length), state: s });
     }
   }
   days.sort((a,b) => b.dateStr.localeCompare(a.dateStr));
@@ -281,7 +297,7 @@ function scanAllDays() {
 let state = loadState();
 let swReg = null;
 let reminderTimeout = null;
-let view = 'main'; // main | history | day-detail | records
+let view = 'main';
 let viewingDayKey = null;
 
 function showToast(msg) {
@@ -289,6 +305,60 @@ function showToast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function buildHistoryHtml(logs, containerId, isToday, dayKey) {
+  const items = logs.map((log, i) => ({ log, i })).slice().reverse();
+  return items.map(({log, i}) => {
+    const prev = i > 0 ? logs[i-1].value : 0;
+    const delta = log.value - prev;
+    return `<div class="history-item">
+      <span class="history-time">${fmtTime(log.time)}</span>
+      <span class="history-val">${log.value} m</span>
+      <span class="history-delta">${i > 0 ? (delta>=0?'+':'') + delta + ' m' : '—'}</span>
+      <span class="history-actions">
+        <button class="icon-btn edit-log" data-idx="${i}">✎</button>
+        <button class="icon-btn delete delete-log" data-idx="${i}">🗑</button>
+      </span>
+    </div>`;
+  }).join('');
+}
+
+function wireHistoryActions(container, isToday, dayKey) {
+  container.querySelectorAll('.edit-log').forEach(btn => {
+    btn.onclick = () => editLog(dayKey, parseInt(btn.dataset.idx,10), isToday);
+  });
+  container.querySelectorAll('.delete-log').forEach(btn => {
+    btn.onclick = () => deleteLog(dayKey, parseInt(btn.dataset.idx,10), isToday);
+  });
+}
+
+function editLog(key, idx, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s) return;
+  const current = s.logs[idx].value;
+  const val = prompt(t('editPrompt'), current);
+  if (val === null) return;
+  const num = parseInt(val, 10);
+  if (isNaN(num) || num < 0) { showToast(t('invalidValue')); return; }
+  s.logs[idx].value = num;
+  if (isToday) { state = s; saveState(state); renderMain(); }
+  else { saveDayState(key, s); renderDrawer(); }
+}
+
+function deleteLog(key, idx, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s) return;
+  if (!confirm(t('confirmDeleteLog'))) return;
+  s.logs.splice(idx, 1);
+  if (s.logs.length === 0) {
+    localStorage.removeItem(key);
+    if (isToday) { state = null; if (reminderTimeout) clearTimeout(reminderTimeout); renderMain(); }
+    else { view = 'history'; renderDrawer(); }
+    return;
+  }
+  if (isToday) { state = s; saveState(state); renderMain(); }
+  else { saveDayState(key, s); renderDrawer(); }
 }
 
 // ---------- MAIN VIEW ----------
@@ -312,7 +382,7 @@ function renderMain() {
       const shift = detectShift(now);
       state = {
         date: todayKey(), turnoId: shift.id, turnoLabel: shift.label,
-        shiftStart: shiftStartDate(shift, now).getTime(), pausa: false,
+        shiftStart: shiftStartDate(shift, now).getTime(), pausa: false, notes: '',
         logs: [{ time: now.getTime(), value: val }], nextReminder: now.getTime() + 3600000
       };
       saveState(state);
@@ -338,18 +408,7 @@ function renderMain() {
   const prediction = Math.round(totalMetros + rate * remainingEffH);
   const isShiftOver = now >= shiftEnd;
 
-  header.innerHTML = `${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--beige-dark)">' + t('shiftOver') + '</span>' : ''}`;
-
-  const historyHtml = state.logs.slice().reverse().map((log, idx) => {
-    const revIdx = state.logs.length - 1 - idx;
-    const prev = revIdx > 0 ? state.logs[revIdx - 1].value : 0;
-    const delta = log.value - prev;
-    return `<div class="history-item">
-      <span class="history-time">${fmtTime(log.time)}</span>
-      <span>${log.value} m</span>
-      <span class="history-delta">${revIdx > 0 ? (delta >= 0 ? '+' : '') + delta + ' m' : '—'}</span>
-    </div>`;
-  }).join('');
+  header.innerHTML = `${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
 
   app.innerHTML = `
     <div class="card">
@@ -384,11 +443,18 @@ function renderMain() {
 
     <div class="card">
       <div class="stat-label" style="margin-bottom:8px;">${t('historyLabel')}</div>
-      <div class="history">${historyHtml || '<div class="empty-state">' + t('noRecords') + '</div>'}</div>
+      <div class="history" id="todayHistory">${buildHistoryHtml(state.logs, 'todayHistory', true, todayKey()) || '<div class="empty-state">' + t('noRecords') + '</div>'}</div>
+    </div>
+
+    <div class="card">
+      <div class="stat-label" style="margin-bottom:8px;">${t('notesLabel')}</div>
+      <textarea id="dayNotes" placeholder="${t('notesPlaceholder')}">${state.notes || ''}</textarea>
     </div>
 
     <button class="btn-danger" id="btnReset" style="width:100%; margin-top:6px;">${t('resetBtn')}</button>
   `;
+
+  wireHistoryActions(document.getElementById('todayHistory'), true, todayKey());
 
   document.getElementById('btnAddLog').onclick = () => {
     const val = parseInt(document.getElementById('newValue').value, 10);
@@ -399,6 +465,10 @@ function renderMain() {
     state.pausa = !state.pausa;
     saveState(state);
     renderMain();
+  };
+  document.getElementById('dayNotes').onblur = (e) => {
+    state.notes = e.target.value;
+    saveState(state);
   };
   document.getElementById('btnReset').onclick = () => {
     if (confirm(t('confirmReset'))) {
@@ -524,17 +594,9 @@ function renderDrawer() {
 
   else if (view === 'day-detail') {
     const s = loadState(viewingDayKey);
+    if (!s) { view = 'history'; renderDrawer(); return; }
     const stats = computeDayStats(s);
     const dateStr = viewingDayKey.slice(DAY_PREFIX.length);
-    const historyHtml = s.logs.map((log, i) => {
-      const prev = i > 0 ? s.logs[i-1].value : 0;
-      const delta = log.value - prev;
-      return `<div class="history-item">
-        <span class="history-time">${fmtTime(log.time)}</span>
-        <span>${log.value} m</span>
-        <span class="history-delta">${i > 0 ? (delta>=0?'+':'') + delta + ' m' : '—'}</span>
-      </div>`;
-    }).join('');
     content.innerHTML = `
       <div class="back-link" id="backToHistory">${t('menuBack')}</div>
       <h2>${fmtDate(dateStr)} · ${stats.turnoLabel}</h2>
@@ -542,9 +604,18 @@ function renderDrawer() {
         <div><div class="stat-label">${t('dayDetailTotal')}</div><div class="stat-value">${stats.total} m</div></div>
         <div><div class="stat-label">${t('dayDetailAvg')}</div><div class="stat-value">${stats.rate.toFixed(1)} m/h</div></div>
       </div>
-      <div class="history">${historyHtml}</div>
+      <div class="history" id="dayDetailHistory">${buildHistoryHtml(s.logs, 'dayDetailHistory', false, viewingDayKey)}</div>
+      <h2>${t('notesLabel')}</h2>
+      <textarea id="dayDetailNotes" placeholder="${t('notesPlaceholder')}">${s.notes || ''}</textarea>
     `;
     document.getElementById('backToHistory').onclick = () => { view = 'history'; renderDrawer(); };
+    wireHistoryActions(document.getElementById('dayDetailHistory'), false, viewingDayKey);
+    document.getElementById('dayDetailNotes').onblur = (e) => {
+      const s2 = loadState(viewingDayKey);
+      if (!s2) return;
+      s2.notes = e.target.value;
+      saveDayState(viewingDayKey, s2);
+    };
   }
 
   else if (view === 'records') {
