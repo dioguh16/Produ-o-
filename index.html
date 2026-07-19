@@ -133,6 +133,20 @@
   .x-icon i:last-child{ transform:translateY(-50%) rotate(-45deg); }
   .back-link{color:var(--accent); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
   .tiny-link{color:var(--muted); font-size:0.72rem; cursor:pointer; text-decoration:underline;}
+  .tiny-note{color:var(--muted); font-size:0.72rem; line-height:1.4; margin-bottom:4px;}
+
+  .switch{position:relative; display:inline-block; width:44px; height:26px; flex-shrink:0;}
+  .switch input{opacity:0; width:0; height:0;}
+  .switch .slider{
+    position:absolute; cursor:pointer; inset:0; background:var(--line);
+    border-radius:26px; transition:0.2s;
+  }
+  .switch .slider::before{
+    content:""; position:absolute; height:20px; width:20px; left:3px; bottom:3px;
+    background:#fff; border-radius:50%; transition:0.2s;
+  }
+  .switch input:checked + .slider{background:var(--beige-dark);}
+  .switch input:checked + .slider::before{transform:translateX(18px);}
 
   .notes-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .note-card{
@@ -153,6 +167,11 @@
     position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%;
     background:var(--ink); color:#fff; font-size:0.7rem; padding:0; line-height:1; border:2px solid var(--paper);
   }
+
+  .bar-chart{display:flex; align-items:flex-end; gap:6px; height:140px; overflow-x:auto; padding:10px 2px 0;}
+  .bar-col{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:24px; height:100%; flex-shrink:0;}
+  .bar-col .bar{width:16px; background:var(--beige); border-radius:4px 4px 0 0; min-height:2px;}
+  .bar-col .bar-label{font-size:0.6rem; color:var(--muted); margin-top:4px; white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -243,7 +262,25 @@ const STR = {
     notesLabel: 'Notas do dia',
     notesPlaceholder: 'ex: paragem na linha 2, madeira húmida, etc.',
     hoursLabel: 'Horas efetivas',
-    pausaSince: 'desde'
+    pausaSince: 'desde',
+    menuNotif: 'Notificações',
+    notifToggleLabel: 'Lembretes horários ativos',
+    notifHelpText: 'Se recusou a permissão por engano, ative manualmente em: Chrome → ⋮ → Definições do site → Notificações.',
+    lowerValueConfirm: 'O valor é menor que o último registo ({v} m). Continuar mesmo assim?',
+    menuSummary: 'Resumos',
+    tabWeek: 'Semana',
+    tabMonth: 'Mês',
+    summaryTotal: 'Total do período',
+    summaryAvg: 'Média m/hora',
+    summaryNoData: 'Sem dados neste período',
+    previousPeriods: 'Períodos anteriores',
+    menuData: 'Dados',
+    exportBtn: 'Exportar dados (cópia de segurança)',
+    importBtn: 'Importar dados',
+    importWarning: 'Isto substitui os dados atuais pelos do ficheiro escolhido. Continuar?',
+    importSuccess: 'Dados importados com sucesso',
+    importError: 'Ficheiro inválido',
+    dataExplain: 'Guarde uma cópia de segurança de vez em quando (ex: no Google Drive). Se limpar os dados do site ou trocar de telemóvel, é a única forma de recuperar o histórico e as notas.'
   },
   de: {
     firstLogTitle: 'Erste Erfassung des Tages',
@@ -301,7 +338,25 @@ const STR = {
     notesLabel: 'Notizen zum Tag',
     notesPlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz, usw.',
     hoursLabel: 'Effektive Stunden',
-    pausaSince: 'seit'
+    pausaSince: 'seit',
+    menuNotif: 'Benachrichtigungen',
+    notifToggleLabel: 'Stündliche Erinnerungen aktiv',
+    notifHelpText: 'Falls Sie die Berechtigung versehentlich abgelehnt haben: Chrome → ⋮ → Website-Einstellungen → Benachrichtigungen.',
+    lowerValueConfirm: 'Der Wert ist niedriger als der letzte Eintrag ({v} m). Trotzdem fortfahren?',
+    menuSummary: 'Übersicht',
+    tabWeek: 'Woche',
+    tabMonth: 'Monat',
+    summaryTotal: 'Gesamt im Zeitraum',
+    summaryAvg: 'Ø Meter/Stunde',
+    summaryNoData: 'Keine Daten in diesem Zeitraum',
+    previousPeriods: 'Vorherige Zeiträume',
+    menuData: 'Daten',
+    exportBtn: 'Daten exportieren (Sicherung)',
+    importBtn: 'Daten importieren',
+    importWarning: 'Dies ersetzt die aktuellen Daten durch die der ausgewählten Datei. Fortfahren?',
+    importSuccess: 'Daten erfolgreich importiert',
+    importError: 'Ungültige Datei',
+    dataExplain: 'Erstellen Sie gelegentlich eine Sicherung (z.B. auf Google Drive). Bei gelöschten Website-Daten oder Telefonwechsel ist dies die einzige Möglichkeit, Verlauf und Notizen wiederherzustellen.'
   }
 };
 
@@ -404,6 +459,77 @@ function scanAllDays() {
   return days;
 }
 
+// ---------- SUMMARY (weekly/monthly) ----------
+const WEEKDAY_LABELS = { pt: ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'], de: ['Mo','Di','Mi','Do','Fr','Sa','So'] };
+const MONTH_NAMES = {
+  pt: ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],
+  de: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+};
+function todayDateStr() { return new Date().toISOString().slice(0,10); }
+function addDaysStr(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function weekStartKey(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = (d.getDay() + 6) % 7; // 0=Mon..6=Sun
+  d.setDate(d.getDate() - dow);
+  return d.toISOString().slice(0,10);
+}
+function monthKeyOf(dateStr) { return dateStr.slice(0,7); }
+function fmtMonthLabel(mk) {
+  const [y,m] = mk.split('-');
+  const idx = parseInt(m,10) - 1;
+  return `${MONTH_NAMES[lang()][idx]} ${y}`;
+}
+function allDayStats() {
+  return scanAllDays().map(d => ({ dateStr: d.dateStr, ...computeDayStats(d.state) }));
+}
+function groupBy(list, keyFn) {
+  const groups = {};
+  list.forEach(d => {
+    const k = keyFn(d.dateStr);
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(d);
+  });
+  return groups;
+}
+function periodAgg(days) {
+  const total = days.reduce((s,d) => s + d.total, 0);
+  const hours = days.reduce((s,d) => s + d.hoursEfetivas, 0);
+  return { total, rate: hours > 0 ? total / hours : 0 };
+}
+
+// ---------- NOTIFICATION PREFERENCE ----------
+function notifPrefEnabled() { return localStorage.getItem('notif-pref') !== 'off'; }
+function setNotifPref(v) { localStorage.setItem('notif-pref', v ? 'on' : 'off'); }
+
+// ---------- BACKUP / RESTORE ----------
+function exportAllData() {
+  const dump = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    dump[k] = localStorage.getItem(k);
+  }
+  const blob = new Blob([JSON.stringify({ exportedAt: Date.now(), data: dump }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hbw-diario-backup-${todayDateStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+function importAllData(jsonText) {
+  const parsed = JSON.parse(jsonText);
+  const data = parsed && parsed.data ? parsed.data : parsed;
+  if (!data || typeof data !== 'object') throw new Error('invalid');
+  Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+  return true;
+}
+
 let state = loadState();
 let swReg = null;
 let reminderTimeout = null;
@@ -411,6 +537,7 @@ let view = 'main';
 let editingNoteId = null;
 let editingPhotos = [];
 let viewingDayKey = null;
+let summaryMode = 'week';
 
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -639,6 +766,10 @@ function renderMain() {
 }
 
 function addLog(val) {
+  if (state.logs.length) {
+    const lastVal = state.logs[state.logs.length - 1].value;
+    if (val < lastVal && !confirm(t('lowerValueConfirm').replace('{v}', lastVal))) return;
+  }
   const now = Date.now();
   state.logs.push({ time: now, value: val });
   saveState(state);
@@ -661,12 +792,14 @@ function scheduleNextReminder(justLogged) {
 
 function fireReminder() {
   if (!state) return;
-  if (swReg && Notification.permission === 'granted') {
-    swReg.active && swReg.active.postMessage({ type: 'SHOW_LOG_REMINDER' });
-  } else if (Notification.permission === 'granted') {
-    new Notification(t('shiftLabel'), { body: t('reminderBody') });
-  } else {
-    showToast(t('reminderBody'));
+  if (notifPrefEnabled()) {
+    if (swReg && Notification.permission === 'granted') {
+      swReg.active && swReg.active.postMessage({ type: 'SHOW_LOG_REMINDER' });
+    } else if (Notification.permission === 'granted') {
+      new Notification(t('shiftLabel'), { body: t('reminderBody') });
+    } else {
+      showToast(t('reminderBody'));
+    }
   }
   state.nextReminder = Date.now() + 3600000;
   saveState(state);
@@ -719,18 +852,31 @@ function renderDrawer() {
         <button class="${L==='pt'?'active':''}" id="langPt">Português</button>
         <button class="${L==='de'?'active':''}" id="langDe">Deutsch</button>
       </div>
+      <h2>${t('menuNotif')}</h2>
+      <div class="menu-item" style="cursor:default;">
+        <span>${t('notifToggleLabel')}</span>
+        <label class="switch"><input type="checkbox" id="notifToggle" ${notifPrefEnabled()?'checked':''}><span class="slider"></span></label>
+      </div>
+      <div class="tiny-note">${t('notifHelpText')}</div>
       <h2>${t('menuHistory')}</h2>
       <div class="menu-item" id="goHistory"><span>${t('menuHistory')}</span><span class="arrow">›</span></div>
+      <h2>${t('menuSummary')}</h2>
+      <div class="menu-item" id="goSummary"><span>${t('menuSummary')}</span><span class="arrow">›</span></div>
       <h2>${t('menuRecords')}</h2>
       <div class="menu-item" id="goRecords"><span>${t('menuRecords')}</span><span class="arrow">›</span></div>
       <h2>${t('menuNotes')}</h2>
       <div class="menu-item" id="goNotes"><span>${t('menuNotes')}</span><span class="arrow">›</span></div>
+      <h2>${t('menuData')}</h2>
+      <div class="menu-item" id="goData"><span>${t('menuData')}</span><span class="arrow">›</span></div>
     `;
     document.getElementById('langPt').onclick = () => { setLang('pt'); renderAll(); };
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };
+    document.getElementById('notifToggle').onchange = (e) => setNotifPref(e.target.checked);
     document.getElementById('goHistory').onclick = () => { view = 'history'; renderDrawer(); };
+    document.getElementById('goSummary').onclick = () => { view = 'summary'; renderDrawer(); };
     document.getElementById('goRecords').onclick = () => { view = 'records'; renderDrawer(); };
     document.getElementById('goNotes').onclick = () => { view = 'notes'; renderDrawer(); };
+    document.getElementById('goData').onclick = () => { view = 'data'; renderDrawer(); };
   }
 
   else if (view === 'history') {
@@ -891,6 +1037,97 @@ function renderDrawer() {
         renderDrawer();
       };
     }
+  }
+
+  else if (view === 'summary') {
+    const list = allDayStats();
+    const isWeek = summaryMode === 'week';
+    const keyFn = isWeek ? weekStartKey : monthKeyOf;
+    const groups = groupBy(list, keyFn);
+    const currentKey = keyFn(todayDateStr());
+    const currentDays = groups[currentKey] || [];
+    const currentAgg = periodAgg(currentDays);
+
+    let chartData;
+    if (isWeek) {
+      const labels = WEEKDAY_LABELS[lang()];
+      chartData = [];
+      for (let i = 0; i < 7; i++) {
+        const ds = addDaysStr(currentKey, i);
+        const entry = currentDays.find(d => d.dateStr === ds);
+        chartData.push({ label: labels[i], value: entry ? entry.total : 0 });
+      }
+    } else {
+      chartData = currentDays.slice().sort((a,b) => a.dateStr.localeCompare(b.dateStr))
+        .map(d => ({ label: d.dateStr.slice(8,10), value: d.total }));
+    }
+    const maxVal = Math.max(1, ...chartData.map(c => c.value));
+    const chartHtml = chartData.length ? `<div class="bar-chart">${chartData.map(c =>
+      `<div class="bar-col"><div class="bar" style="height:${Math.max(2, Math.round((c.value/maxVal)*100))}px" title="${c.value} m"></div><div class="bar-label">${c.label}</div></div>`
+    ).join('')}</div>` : '';
+
+    const otherKeys = Object.keys(groups).filter(k => k !== currentKey).sort().reverse().slice(0, 10);
+    const prevRows = otherKeys.map(k => {
+      const agg = periodAgg(groups[k]);
+      const label = isWeek ? `${fmtDate(k)} – ${fmtDate(addDaysStr(k,6))}` : fmtMonthLabel(k);
+      return `<div class="record-row">
+        <div><div class="stat-label" style="margin:0;">${label}</div></div>
+        <div style="text-align:right;">
+          <div class="record-val">${agg.total} m</div>
+          <div class="record-date">${agg.rate.toFixed(1)} m/h</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="back-link" id="backToMenuS">${t('menuBack')}</div>
+      <h2>${t('menuSummary')}</h2>
+      <div class="lang-toggle">
+        <button class="${isWeek?'active':''}" id="tabWeek">${t('tabWeek')}</button>
+        <button class="${!isWeek?'active':''}" id="tabMonth">${t('tabMonth')}</button>
+      </div>
+      <div class="grid2" style="margin:14px 0;">
+        <div><div class="stat-label">${t('summaryTotal')}</div><div class="stat-value">${currentAgg.total} m</div></div>
+        <div><div class="stat-label">${t('summaryAvg')}</div><div class="stat-value">${currentAgg.rate.toFixed(1)} m/h</div></div>
+      </div>
+      ${chartHtml || '<div class="empty-state">' + t('summaryNoData') + '</div>'}
+      <h2 style="margin-top:20px;">${t('previousPeriods')}</h2>
+      ${prevRows || '<div class="empty-state">' + t('noHistory') + '</div>'}
+    `;
+    document.getElementById('backToMenuS').onclick = () => { view = 'menu'; renderDrawer(); };
+    document.getElementById('tabWeek').onclick = () => { summaryMode = 'week'; renderDrawer(); };
+    document.getElementById('tabMonth').onclick = () => { summaryMode = 'month'; renderDrawer(); };
+  }
+
+  else if (view === 'data') {
+    content.innerHTML = `
+      <div class="back-link" id="backToMenuD">${t('menuBack')}</div>
+      <h2>${t('menuData')}</h2>
+      <div class="tiny-note" style="margin-bottom:14px;">${t('dataExplain')}</div>
+      <button class="btn-primary" id="btnExport" style="margin-bottom:10px;">${t('exportBtn')}</button>
+      <button class="btn-secondary" id="btnImport">${t('importBtn')}</button>
+      <input type="file" id="importInput" accept="application/json" style="display:none;">
+    `;
+    document.getElementById('backToMenuD').onclick = () => { view = 'menu'; renderDrawer(); };
+    document.getElementById('btnExport').onclick = () => exportAllData();
+    document.getElementById('btnImport').onclick = () => document.getElementById('importInput').click();
+    document.getElementById('importInput').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!confirm(t('importWarning'))) { e.target.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          importAllData(ev.target.result);
+          showToast(t('importSuccess'));
+          setTimeout(() => window.location.reload(), 1200);
+        } catch (err) {
+          showToast(t('importError'));
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    };
   }
 }
 
