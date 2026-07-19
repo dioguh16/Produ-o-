@@ -133,6 +133,26 @@
   .x-icon i:last-child{ transform:translateY(-50%) rotate(-45deg); }
   .back-link{color:var(--accent); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
   .tiny-link{color:var(--muted); font-size:0.72rem; cursor:pointer; text-decoration:underline;}
+
+  .notes-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .note-card{
+    background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px;
+    cursor:pointer; overflow:hidden; position:relative;
+  }
+  .note-thumb{width:100%; height:80px; object-fit:cover; border-radius:8px; margin-bottom:6px; display:block;}
+  .note-photo-badge{
+    position:absolute; top:16px; right:16px; background:rgba(24,21,17,0.72); color:#fff;
+    font-size:0.65rem; padding:2px 6px; border-radius:6px; font-weight:700;
+  }
+  .note-text{font-size:0.82rem; color:var(--ink); white-space:pre-wrap; max-height:4.4em; overflow:hidden; word-break:break-word;}
+  .note-date{font-size:0.66rem; color:var(--muted); margin-top:6px;}
+  .note-photos{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .note-photo-thumb{position:relative; width:72px; height:72px;}
+  .note-photo-thumb img{width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid var(--line);}
+  .photo-remove{
+    position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%;
+    background:var(--ink); color:#fff; font-size:0.7rem; padding:0; line-height:1; border:2px solid var(--paper);
+  }
 </style>
 </head>
 <body>
@@ -199,6 +219,17 @@ const STR = {
     menuLang: 'Idioma',
     menuHistory: 'Dias anteriores',
     menuRecords: 'Recordes',
+    menuNotes: 'Notas',
+    newNote: '+ Nova nota',
+    notePlaceholder: 'Escreva aqui...',
+    addPhoto: '+ Foto',
+    saveNote: 'Guardar',
+    deleteNote: 'Apagar nota',
+    confirmDeleteNote: 'Apagar esta nota?',
+    emptyNote: 'A nota está vazia',
+    noNotes: 'Ainda sem notas',
+    storageFull: 'Sem espaço de armazenamento — experimente remover fotos ou notas antigas',
+    photosCount: 'fotos',
     menuBack: '← Voltar',
     recordTotal: 'Recorde de produção diária',
     recordRate: 'Melhor média m/hora',
@@ -246,6 +277,17 @@ const STR = {
     menuLang: 'Sprache',
     menuHistory: 'Vorherige Tage',
     menuRecords: 'Rekorde',
+    menuNotes: 'Notizen',
+    newNote: '+ Neue Notiz',
+    notePlaceholder: 'Hier schreiben...',
+    addPhoto: '+ Foto',
+    saveNote: 'Speichern',
+    deleteNote: 'Notiz löschen',
+    confirmDeleteNote: 'Diese Notiz löschen?',
+    emptyNote: 'Die Notiz ist leer',
+    noNotes: 'Noch keine Notizen',
+    storageFull: 'Kein Speicherplatz mehr — alte Fotos oder Notizen entfernen',
+    photosCount: 'Fotos',
     menuBack: '← Zurück',
     recordTotal: 'Tagesproduktionsrekord',
     recordRate: 'Beste Ø Meter/Stunde',
@@ -309,6 +351,46 @@ function computeDayStats(s) {
   return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: effShiftH };
 }
 
+const NOTES_KEY = 'keep-notes';
+function loadAllNotes() {
+  try { return JSON.parse(localStorage.getItem(NOTES_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveAllNotes(notes) {
+  try { localStorage.setItem(NOTES_KEY, JSON.stringify(notes)); return true; }
+  catch (e) { showToast(t('storageFull')); return false; }
+}
+function getNoteById(id) { return loadAllNotes().find(n => n.id === id) || null; }
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  return fmtDate(todayKey(d).slice(DAY_PREFIX.length)) + ' ' + fmtTime(ts);
+}
+function escapeHtml(str) {
+  return (str || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function compressImage(file, maxDim = 1000, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function scanAllDays() {
   const days = [];
   for (let i = 0; i < localStorage.length; i++) {
@@ -326,6 +408,8 @@ let state = loadState();
 let swReg = null;
 let reminderTimeout = null;
 let view = 'main';
+let editingNoteId = null;
+let editingPhotos = [];
 let viewingDayKey = null;
 
 function showToast(msg) {
@@ -639,11 +723,14 @@ function renderDrawer() {
       <div class="menu-item" id="goHistory"><span>${t('menuHistory')}</span><span class="arrow">›</span></div>
       <h2>${t('menuRecords')}</h2>
       <div class="menu-item" id="goRecords"><span>${t('menuRecords')}</span><span class="arrow">›</span></div>
+      <h2>${t('menuNotes')}</h2>
+      <div class="menu-item" id="goNotes"><span>${t('menuNotes')}</span><span class="arrow">›</span></div>
     `;
     document.getElementById('langPt').onclick = () => { setLang('pt'); renderAll(); };
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };
     document.getElementById('goHistory').onclick = () => { view = 'history'; renderDrawer(); };
     document.getElementById('goRecords').onclick = () => { view = 'records'; renderDrawer(); };
+    document.getElementById('goNotes').onclick = () => { view = 'notes'; renderDrawer(); };
   }
 
   else if (view === 'history') {
@@ -727,6 +814,98 @@ function renderDrawer() {
     `;
     document.getElementById('backToMenu2').onclick = () => { view = 'menu'; renderDrawer(); };
   }
+
+  else if (view === 'notes') {
+    const notes = loadAllNotes().slice().sort((a,b) => b.updatedAt - a.updatedAt);
+    const cardsHtml = notes.map(n => {
+      const thumb = n.photos && n.photos.length ? `<img src="${n.photos[0]}" class="note-thumb">` : '';
+      const extraPhotos = n.photos && n.photos.length > 1 ? `<div class="note-photo-badge">+${n.photos.length - 1} ${t('photosCount')}</div>` : '';
+      return `<div class="note-card" data-id="${n.id}">
+        ${thumb}${extraPhotos}
+        <div class="note-text">${escapeHtml(n.text).slice(0,140)}</div>
+        <div class="note-date">${fmtDateTime(n.updatedAt)}</div>
+      </div>`;
+    }).join('');
+    content.innerHTML = `
+      <div class="back-link" id="backToMenu3">${t('menuBack')}</div>
+      <h2>${t('menuNotes')}</h2>
+      <button class="btn-primary" id="btnNewNote" style="margin-bottom:14px;">${t('newNote')}</button>
+      <div class="notes-grid">${cardsHtml || '<div class="empty-state" style="grid-column:1/-1;">' + t('noNotes') + '</div>'}</div>
+    `;
+    document.getElementById('backToMenu3').onclick = () => { view = 'menu'; renderDrawer(); };
+    document.getElementById('btnNewNote').onclick = () => { editingNoteId = null; editingPhotos = []; view = 'note-edit'; renderDrawer(); };
+    content.querySelectorAll('.note-card').forEach(el => {
+      el.onclick = () => {
+        editingNoteId = el.dataset.id;
+        const n = getNoteById(editingNoteId);
+        editingPhotos = n ? [...(n.photos || [])] : [];
+        view = 'note-edit';
+        renderDrawer();
+      };
+    });
+  }
+
+  else if (view === 'note-edit') {
+    const note = editingNoteId ? getNoteById(editingNoteId) : null;
+    content.innerHTML = `
+      <div class="back-link" id="backToNotes">${t('menuBack')}</div>
+      <textarea id="noteText" placeholder="${t('notePlaceholder')}" style="min-height:130px;">${note ? escapeHtml(note.text) : ''}</textarea>
+      <div class="note-photos" id="notePhotos"></div>
+      <button class="btn-secondary" id="btnAddPhoto" style="margin-top:10px;">${t('addPhoto')}</button>
+      <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="btn-primary" id="btnSaveNote" style="flex:1;">${t('saveNote')}</button>
+      </div>
+      ${editingNoteId ? `<button class="btn-danger" id="btnDeleteNote" style="width:100%; margin-top:10px;">${t('deleteNote')}</button>` : ''}
+    `;
+    renderNotePhotosUI();
+    document.getElementById('backToNotes').onclick = () => { view = 'notes'; renderDrawer(); };
+    document.getElementById('btnAddPhoto').onclick = () => document.getElementById('photoInput').click();
+    document.getElementById('photoInput').onchange = async (e) => {
+      const files = Array.from(e.target.files || []);
+      for (const f of files) {
+        try { editingPhotos.push(await compressImage(f)); } catch (err) {}
+      }
+      renderNotePhotosUI();
+      e.target.value = '';
+    };
+    document.getElementById('btnSaveNote').onclick = () => {
+      const text = document.getElementById('noteText').value.trim();
+      if (!text && editingPhotos.length === 0) { showToast(t('emptyNote')); return; }
+      const notes = loadAllNotes();
+      const now = Date.now();
+      if (editingNoteId) {
+        const idx = notes.findIndex(n => n.id === editingNoteId);
+        if (idx > -1) { notes[idx].text = text; notes[idx].photos = editingPhotos; notes[idx].updatedAt = now; }
+      } else {
+        notes.push({ id: 'note-' + now + '-' + Math.random().toString(36).slice(2,7), text, photos: editingPhotos, createdAt: now, updatedAt: now });
+      }
+      if (saveAllNotes(notes)) { view = 'notes'; renderDrawer(); }
+    };
+    if (editingNoteId) {
+      document.getElementById('btnDeleteNote').onclick = () => {
+        if (!confirm(t('confirmDeleteNote'))) return;
+        const notes = loadAllNotes().filter(n => n.id !== editingNoteId);
+        saveAllNotes(notes);
+        view = 'notes';
+        renderDrawer();
+      };
+    }
+  }
+}
+
+function renderNotePhotosUI() {
+  const container = document.getElementById('notePhotos');
+  if (!container) return;
+  container.innerHTML = editingPhotos.map((src, i) => `
+    <div class="note-photo-thumb">
+      <img src="${src}">
+      <button class="photo-remove" data-i="${i}">✕</button>
+    </div>
+  `).join('');
+  container.querySelectorAll('.photo-remove').forEach(btn => {
+    btn.onclick = () => { editingPhotos.splice(parseInt(btn.dataset.i, 10), 1); renderNotePhotosUI(); };
+  });
 }
 
 function renderAll() {
