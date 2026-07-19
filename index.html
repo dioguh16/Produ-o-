@@ -132,6 +132,7 @@
   .x-icon i:first-child{ transform:translateY(-50%) rotate(45deg); }
   .x-icon i:last-child{ transform:translateY(-50%) rotate(-45deg); }
   .back-link{color:var(--accent); margin-bottom:14px; display:inline-block; cursor:pointer; font-weight:700;}
+  .tiny-link{color:var(--muted); font-size:0.72rem; cursor:pointer; text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -182,7 +183,11 @@ const STR = {
     pausaOn: '☕ Pausa registada (−30 min)',
     historyLabel: 'Histórico de hoje',
     noRecords: 'Sem registos',
-    resetBtn: 'Terminar / limpar dia',
+    resetBtn: 'Apagar registos de hoje',
+    editSchedule: 'Ajustar horário deste turno',
+    promptStart: 'Hora de início (HH:MM):',
+    promptEnd: 'Hora de fim (HH:MM):',
+    invalidTime: 'Horário inválido',
     footerNote: 'Nota: os lembretes horários funcionam melhor com a app aberta ou em segundo plano recente. Se o telemóvel poupar bateria de forma agressiva, abra a app de vez em quando para "apanhar" lembretes em atraso.',
     enableNotif: 'Ativar notificações',
     enableNotifBanner: 'Ative as notificações para receber o lembrete a cada hora.',
@@ -225,7 +230,11 @@ const STR = {
     pausaOn: '☕ Pause erfasst (−30 Min.)',
     historyLabel: 'Verlauf heute',
     noRecords: 'Keine Einträge',
-    resetBtn: 'Tag beenden / löschen',
+    resetBtn: 'Heutige Einträge löschen',
+    editSchedule: 'Schichtzeiten dieses Tages anpassen',
+    promptStart: 'Startzeit (HH:MM):',
+    promptEnd: 'Endzeit (HH:MM):',
+    invalidTime: 'Ungültige Zeit',
     footerNote: 'Hinweis: Stündliche Erinnerungen funktionieren am zuverlässigsten, wenn die App geöffnet ist oder kürzlich im Hintergrund lief. Bei aggressivem Akkusparen bitte die App gelegentlich öffnen, um verpasste Erinnerungen nachzuholen.',
     enableNotif: 'Benachrichtigungen aktivieren',
     enableNotifBanner: 'Aktivieren Sie Benachrichtigungen für die stündliche Erinnerung.',
@@ -295,7 +304,7 @@ function shiftStartDate(shift, refDate) {
 function computeDayStats(s) {
   const lastLog = s.logs[s.logs.length - 1];
   const total = lastLog.value;
-  const effShiftH = SHIFT_LENGTH_H - (s.pausa ? BREAK_H : 0);
+  const effShiftH = (s.shiftLengthH || SHIFT_LENGTH_H) - (s.pausa ? BREAK_H : 0);
   const rate = total / effShiftH;
   return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: effShiftH };
 }
@@ -380,7 +389,43 @@ function deleteLog(key, idx, isToday) {
   else { saveDayState(key, s); renderDrawer(); }
 }
 
-// ---------- MAIN VIEW ----------
+function editSchedule(key, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s) return;
+  const startD = new Date(s.shiftStart);
+  const curLenH = s.shiftLengthH || SHIFT_LENGTH_H;
+  const endD = new Date(s.shiftStart + curLenH * 3600000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const startDefault = `${pad(startD.getHours())}:${pad(startD.getMinutes())}`;
+  const endDefault = `${pad(endD.getHours())}:${pad(endD.getMinutes())}`;
+
+  const startVal = prompt(t('promptStart'), startDefault);
+  if (startVal === null) return;
+  const endVal = prompt(t('promptEnd'), endDefault);
+  if (endVal === null) return;
+
+  const m1 = /^(\d{1,2}):(\d{2})$/.exec(startVal.trim());
+  const m2 = /^(\d{1,2}):(\d{2})$/.exec(endVal.trim());
+  if (!m1 || !m2) { showToast(t('invalidTime')); return; }
+  const sh = parseInt(m1[1],10), sm = parseInt(m1[2],10);
+  const eh = parseInt(m2[1],10), em = parseInt(m2[2],10);
+  if (sh>23||sm>59||eh>23||em>59) { showToast(t('invalidTime')); return; }
+
+  const newStart = new Date(startD);
+  newStart.setHours(sh, sm, 0, 0);
+  let lengthH = (eh + em/60) - (sh + sm/60);
+  if (lengthH <= 0) lengthH += 24;
+  if (lengthH <= 0 || lengthH > 16) { showToast(t('invalidTime')); return; }
+
+  s.shiftStart = newStart.getTime();
+  s.shiftLengthH = Math.round(lengthH * 100) / 100;
+  s.turnoLabel = `${pad(sh)}:${pad(sm)}–${pad(eh)}:${pad(em)}`;
+
+  if (isToday) { state = s; saveState(state); scheduleNextReminder(false); renderMain(); }
+  else { saveDayState(key, s); renderDrawer(); }
+}
+
+
 function renderMain() {
   const app = document.getElementById('app');
   const header = document.getElementById('headerSub');
@@ -401,6 +446,7 @@ function renderMain() {
       const shift = detectShift(now);
       state = {
         date: todayKey(), turnoId: shift.id, turnoLabel: shift.label,
+        shiftLengthH: SHIFT_LENGTH_H,
         shiftStart: shiftStartDate(shift, now).getTime(), pausa: false, notes: '',
         logs: [{ time: now.getTime(), value: val }], nextReminder: now.getTime() + 3600000
       };
@@ -413,14 +459,15 @@ function renderMain() {
   }
 
   const shift = SHIFTS.find(s => s.id === state.turnoId);
+  const shiftLengthH = state.shiftLengthH || SHIFT_LENGTH_H;
   const shiftStart = state.shiftStart;
-  const shiftEnd = shiftStart + SHIFT_LENGTH_H * 3600000;
+  const shiftEnd = shiftStart + shiftLengthH * 3600000;
   const now = Date.now();
   const lastLog = state.logs[state.logs.length - 1];
   const totalMetros = lastLog.value;
 
   const elapsedRealH = Math.max((now - shiftStart) / 3600000, 0.02);
-  const effShiftH = SHIFT_LENGTH_H - (state.pausa ? BREAK_H : 0);
+  const effShiftH = shiftLengthH - (state.pausa ? BREAK_H : 0);
   const rate = totalMetros / elapsedRealH;
   const remainingEffH = Math.max(effShiftH - elapsedRealH, 0);
   const prediction = Math.round(totalMetros + rate * remainingEffH);
@@ -447,7 +494,7 @@ function renderMain() {
     </div>
 
     <div class="card">
-      <div class="stat-label">${t('forecastLabel')} (${shift.label.split('–')[1]})</div>
+      <div class="stat-label">${t('forecastLabel')} (${state.turnoLabel.split('–')[1]})</div>
       <div class="stat-value big">${prediction}<span class="stat-unit"> m</span></div>
     </div>
 
@@ -474,6 +521,9 @@ function renderMain() {
     </div>
 
     <button class="btn-danger" id="btnReset" style="width:100%; margin-top:6px;">${t('resetBtn')}</button>
+    <div style="text-align:center; margin-top:14px;">
+      <span class="tiny-link" id="btnEditSchedule">${t('editSchedule')}</span>
+    </div>
   `;
 
   wireHistoryActions(document.getElementById('todayHistory'), true, todayKey());
@@ -501,6 +551,7 @@ function renderMain() {
       renderMain();
     }
   };
+  document.getElementById('btnEditSchedule').onclick = () => editSchedule(todayKey(), true);
 }
 
 function addLog(val) {
@@ -516,7 +567,7 @@ function addLog(val) {
 function scheduleNextReminder(justLogged) {
   if (!state) return;
   const now = Date.now();
-  const shiftEnd = state.shiftStart + SHIFT_LENGTH_H * 3600000;
+  const shiftEnd = state.shiftStart + (state.shiftLengthH || SHIFT_LENGTH_H) * 3600000;
   if (justLogged) { state.nextReminder = now + 3600000; saveState(state); }
   if (reminderTimeout) clearTimeout(reminderTimeout);
   if (state.nextReminder >= shiftEnd) return;
@@ -540,7 +591,7 @@ function fireReminder() {
 
 function catchUpReminders() {
   if (!state) return;
-  const shiftEnd = state.shiftStart + SHIFT_LENGTH_H * 3600000;
+  const shiftEnd = state.shiftStart + (state.shiftLengthH || SHIFT_LENGTH_H) * 3600000;
   const now = Date.now();
   if (state.nextReminder && state.nextReminder <= now && now < shiftEnd) fireReminder();
   else scheduleNextReminder(false);
@@ -631,6 +682,9 @@ function renderDrawer() {
       <div class="history" id="dayDetailHistory">${buildHistoryHtml(s.logs, 'dayDetailHistory', false, viewingDayKey)}</div>
       <h2>${t('notesLabel')}</h2>
       <textarea id="dayDetailNotes" placeholder="${t('notesPlaceholder')}">${s.notes || ''}</textarea>
+      <div style="text-align:center; margin-top:14px;">
+        <span class="tiny-link" id="btnEditScheduleDay">${t('editSchedule')}</span>
+      </div>
     `;
     document.getElementById('backToHistory').onclick = () => { view = 'history'; renderDrawer(); };
     wireHistoryActions(document.getElementById('dayDetailHistory'), false, viewingDayKey);
@@ -640,6 +694,7 @@ function renderDrawer() {
       s2.notes = e.target.value;
       saveDayState(viewingDayKey, s2);
     };
+    document.getElementById('btnEditScheduleDay').onclick = () => editSchedule(viewingDayKey, false);
   }
 
   else if (view === 'records') {
