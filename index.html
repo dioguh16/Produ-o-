@@ -835,11 +835,22 @@ function openDrawer() {
   renderDrawer();
   document.getElementById('overlay').classList.add('open');
   document.getElementById('drawer').classList.add('open');
+  history.pushState({ drawerOpen: true }, '');
 }
-function closeDrawer() {
+function hideDrawerUI() {
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('drawer').classList.remove('open');
 }
+function closeDrawer() {
+  if (history.state && history.state.drawerOpen) {
+    history.back(); // triggers popstate -> hideDrawerUI()
+  } else {
+    hideDrawerUI();
+  }
+}
+window.addEventListener('popstate', () => {
+  hideDrawerUI();
+});
 
 function renderDrawer() {
   const content = document.getElementById('drawerContent');
