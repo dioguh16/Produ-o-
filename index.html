@@ -148,6 +148,29 @@
   .switch input:checked + .slider{background:var(--beige-dark);}
   .switch input:checked + .slider::before{transform:translateX(18px);}
 
+  .checkbox-row{display:flex; align-items:center; gap:10px; font-size:0.95rem; color:var(--ink); cursor:pointer;}
+  .checkbox-row input[type=checkbox]{width:20px; height:20px; accent-color:var(--beige-dark); flex-shrink:0;}
+
+  .splash{
+    position:fixed; inset:0; background:#ffffff; z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    transition:opacity 0.4s ease;
+  }
+  .splash.hide{opacity:0; pointer-events:none;}
+  .splash-icon{
+    width:110px; height:110px; border-radius:20px;
+    transform:scale(0.25); opacity:0;
+    animation:splashGrow 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes splashGrow{ to{ transform:scale(1); opacity:1; } }
+  .splash-brand{
+    margin-top:16px; text-align:center; opacity:0;
+    animation:splashFadeIn 0.5s ease forwards; animation-delay:0.55s;
+  }
+  .splash-brand .word1{display:block; font-size:1.4rem; font-weight:800; color:var(--ink);}
+  .splash-brand .word2{display:block; font-size:0.75rem; font-weight:600; letter-spacing:0.15em; color:var(--beige-dark); text-transform:uppercase; margin-top:2px;}
+  @keyframes splashFadeIn{ to{ opacity:1; } }
+
   .notes-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .note-card{
     background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px;
@@ -175,6 +198,14 @@
 </style>
 </head>
 <body>
+
+<div class="splash" id="splashScreen">
+  <img src="icon-512.png" class="splash-icon" alt="">
+  <div class="splash-brand" id="splashBrand">
+    <span class="word1">HolzBauWerk</span>
+    <span class="word2">Schwarzwald</span>
+  </div>
+</div>
 
 <div class="topbar">
   <div class="brand" id="brandArea">
@@ -684,7 +715,7 @@ function renderMain() {
   const prediction = Math.round(totalMetros + rate * remainingEffH);
   const isShiftOver = now >= shiftEnd;
 
-  header.innerHTML = `${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
+  header.innerHTML = `${fmtDate(todayDateStr())} · ${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
 
   app.innerHTML = `
     <div class="card">
@@ -719,6 +750,10 @@ function renderMain() {
       <button class="${state.pausa ? 'btn-pausa-on' : 'btn-pausa-off'}" id="btnPausa" style="width:100%">
         ${state.pausa ? t('pausaOn') : t('pausaOff')}
       </button>
+      <label class="checkbox-row" style="margin-top:12px;">
+        <input type="checkbox" id="probeteileCheck" ${state.probeteile ? 'checked' : ''}>
+        <span>Probeteile</span>
+      </label>
     </div>
 
     <div class="card">
@@ -749,6 +784,10 @@ function renderMain() {
     state.pausaAt = state.pausa ? Date.now() : null;
     saveState(state);
     renderMain();
+  };
+  document.getElementById('probeteileCheck').onchange = (e) => {
+    state.probeteile = e.target.checked;
+    saveState(state);
   };
   document.getElementById('dayNotes').onblur = (e) => {
     state.notes = e.target.value;
@@ -942,7 +981,7 @@ function renderDrawer() {
   }
 
   else if (view === 'records') {
-    const days = scanAllDays();
+    const days = scanAllDays().filter(d => d.key !== todayKey());
     let bestTotal = null, bestRate = null;
     days.forEach(d => {
       const stats = computeDayStats(d.state);
@@ -1201,6 +1240,14 @@ document.addEventListener('visibilitychange', () => {
 renderAll();
 if (state) scheduleNextReminder(false);
 setInterval(renderMain, 30000);
+
+setTimeout(() => {
+  const splash = document.getElementById('splashScreen');
+  if (splash) {
+    splash.classList.add('hide');
+    setTimeout(() => splash.remove(), 450);
+  }
+}, 1500);
 </script>
 </body>
 </html>
