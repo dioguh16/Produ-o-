@@ -159,13 +159,10 @@
   .splash.hide{opacity:0; pointer-events:none;}
   .splash-icon{
     width:110px; height:110px; border-radius:20px;
-    transform:scale(0.25); opacity:0;
-    animation:splashGrow 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
   }
-  @keyframes splashGrow{ to{ transform:scale(1); opacity:1; } }
   .splash-brand{
     margin-top:16px; text-align:center; opacity:0;
-    animation:splashFadeIn 0.5s ease forwards; animation-delay:0.55s;
+    animation:splashFadeIn 0.5s ease forwards; animation-delay:0.25s;
   }
   .splash-brand .word1{display:block; font-size:1.4rem; font-weight:800; color:var(--ink);}
   .splash-brand .word2{display:block; font-size:0.75rem; font-weight:600; letter-spacing:0.15em; color:var(--beige-dark); text-transform:uppercase; margin-top:2px;}
@@ -1247,7 +1244,7 @@ setTimeout(() => {
     splash.classList.add('hide');
     setTimeout(() => splash.remove(), 450);
   }
-}, 1500);
+}, 1300);
 </script>
 </body>
 </html>
