@@ -13,7 +13,7 @@
     --ink:#181511; --muted:#8a8074;
     --accent:#181511; --accent-dark:#000000; --accent-contrast:#ffffff;
     --beige:#c3b59e; --beige-dark:#a89877;
-    --pos:#5c7a4a; --neg:#a24f3a;
+    --pos:#5c7a4a; --neg:#a24f3a; --amber:#c9932e;
   }
   *{box-sizing:border-box;}
   body{
@@ -188,10 +188,12 @@
     background:var(--ink); color:#fff; font-size:0.7rem; padding:0; line-height:1; border:2px solid var(--paper);
   }
 
-  .bar-chart{display:flex; align-items:flex-end; gap:6px; height:140px; overflow-x:auto; padding:10px 2px 0;}
-  .bar-col{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:24px; height:100%; flex-shrink:0;}
+  .bar-chart{position:relative; display:flex; align-items:flex-end; gap:6px; height:150px; overflow-x:auto; padding:16px 2px 0;}
+  .bar-col{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; min-width:26px; height:100%; flex-shrink:0;}
   .bar-col .bar{width:16px; background:var(--beige); border-radius:4px 4px 0 0; min-height:2px;}
+  .bar-col .bar-value{font-size:0.58rem; color:var(--ink); font-weight:700; margin-bottom:2px; white-space:nowrap;}
   .bar-col .bar-label{font-size:0.6rem; color:var(--muted); margin-top:4px; white-space:nowrap;}
+  .goal-line{position:absolute; left:0; right:0; border-top:1px dashed var(--beige-dark); opacity:0.7;}
 </style>
 </head>
 <body>
@@ -240,10 +242,12 @@ const STR = {
     firstLogBtn: 'Registar e começar turno',
     shiftLabel: 'Turno',
     startedAt: 'início às',
+    weekLabel: 'Semana',
     shiftOver: 'turno terminado',
     totalToday: 'Total hoje',
     avgRate: 'Média m/hora',
     forecastLabel: 'Previsão até ao fim do turno',
+    predictedNowLabel: 'Previsão para agora',
     newLogLabel: 'Novo registo (valor total acumulado)',
     registerBtn: 'Registar',
     pausaOff: 'Marcar pausa de 30 min',
@@ -316,10 +320,12 @@ const STR = {
     firstLogBtn: 'Erfassen und Schicht starten',
     shiftLabel: 'Schicht',
     startedAt: 'Start um',
+    weekLabel: 'Woche',
     shiftOver: 'Schicht beendet',
     totalToday: 'Gesamt heute',
     avgRate: 'Ø Meter/Stunde',
     forecastLabel: 'Prognose bis Schichtende',
+    predictedNowLabel: 'Prognose für jetzt',
     newLogLabel: 'Neue Erfassung (Gesamtstand)',
     registerBtn: 'Erfassen',
     pausaOff: '30 Min. Pause markieren',
@@ -394,6 +400,13 @@ const SHIFTS = [
 ];
 const SHIFT_LENGTH_H = 9;
 const BREAK_H = 0.5;
+const DAILY_GOAL = 18000;
+const GOAL_LOW = 16000;
+function goalColor(val) {
+  if (val < GOAL_LOW) return 'var(--neg)';
+  if (val < DAILY_GOAL) return 'var(--amber)';
+  return 'var(--pos)';
+}
 const DAY_PREFIX = 'prod-';
 
 function lang() { return localStorage.getItem('app-lang') || 'pt'; }
@@ -494,6 +507,12 @@ const MONTH_NAMES = {
   de: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
 };
 function todayDateStr() { return new Date().toISOString().slice(0,10); }
+function isoWeekNumber(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
 function addDaysStr(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
@@ -512,7 +531,7 @@ function fmtMonthLabel(mk) {
   return `${MONTH_NAMES[lang()][idx]} ${y}`;
 }
 function allDayStats() {
-  return scanAllDays().map(d => ({ dateStr: d.dateStr, ...computeDayStats(d.state) }));
+  return scanAllDays().filter(d => d.dateStr !== todayDateStr()).map(d => ({ dateStr: d.dateStr, ...computeDayStats(d.state) }));
 }
 function groupBy(list, keyFn) {
   const groups = {};
@@ -707,19 +726,28 @@ function renderMain() {
 
   const elapsedRealH = Math.max((now - shiftStart) / 3600000, 0.02);
   const effShiftH = shiftLengthH - (state.pausa ? BREAK_H : 0);
-  const rate = totalMetros / elapsedRealH;
-  const remainingEffH = Math.max(effShiftH - elapsedRealH, 0);
-  const prediction = Math.round(totalMetros + rate * remainingEffH);
-  const isShiftOver = now >= shiftEnd;
 
-  header.innerHTML = `${fmtDate(todayDateStr())} · ${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
+  // Taxa e previsão de fim de turno: fixas com base na última leitura, não avançam com o relógio
+  const hoursAtLastLog = Math.max((lastLog.time - shiftStart) / 3600000, 0.02);
+  const rate = totalMetros / hoursAtLastLog;
+  const remainingAtLastLogH = Math.max(effShiftH - hoursAtLastLog, 0);
+  const prediction = Math.round(totalMetros + rate * remainingAtLastLogH);
+
+  // Previsão para agora: usa a mesma taxa, mas avança com o tempo desde a última leitura
+  const hoursSinceLastLog = Math.max((now - lastLog.time) / 3600000, 0);
+  const predictedNow = Math.round(totalMetros + rate * hoursSinceLastLog);
+
+  const isShiftOver = now >= shiftEnd;
+  const weekNo = isoWeekNumber(todayDateStr());
+
+  header.innerHTML = `${fmtDate(todayDateStr())} · ${t('weekLabel')} ${weekNo} · ${t('shiftLabel')} <b>${state.turnoLabel}</b> · ${t('startedAt')} ${fmtTime(shiftStart)}${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
 
   app.innerHTML = `
     <div class="card">
       <div class="grid2">
         <div>
           <div class="stat-label">${t('totalToday')}</div>
-          <div class="stat-value big">${totalMetros}<span class="stat-unit"> m</span></div>
+          <div class="stat-value big"><span style="color:${goalColor(totalMetros)}">${totalMetros}</span><span class="stat-unit"> / ${DAILY_GOAL} m</span></div>
         </div>
         <div>
           <div class="stat-label">${t('avgRate')}</div>
@@ -733,8 +761,16 @@ function renderMain() {
     </div>
 
     <div class="card">
-      <div class="stat-label">${t('forecastLabel')} (${state.turnoLabel.split('–')[1]})</div>
-      <div class="stat-value big">${prediction}<span class="stat-unit"> m</span></div>
+      <div class="grid2">
+        <div>
+          <div class="stat-label">${t('forecastLabel')} (${state.turnoLabel.split('–')[1]})</div>
+          <div class="stat-value">${prediction}<span class="stat-unit"> m</span></div>
+        </div>
+        <div>
+          <div class="stat-label">${t('predictedNowLabel')}</div>
+          <div class="stat-value">${predictedNow}<span class="stat-unit"> m</span></div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -1108,10 +1144,18 @@ function renderDrawer() {
       chartData = currentDays.slice().sort((a,b) => a.dateStr.localeCompare(b.dateStr))
         .map(d => ({ label: d.dateStr.slice(8,10), value: d.total }));
     }
-    const maxVal = Math.max(1, ...chartData.map(c => c.value));
-    const chartHtml = chartData.length ? `<div class="bar-chart">${chartData.map(c =>
-      `<div class="bar-col"><div class="bar" style="height:${Math.max(2, Math.round((c.value/maxVal)*100))}px" title="${c.value} m"></div><div class="bar-label">${c.label}</div></div>`
-    ).join('')}</div>` : '';
+    const maxVal = Math.max(DAILY_GOAL, ...chartData.map(c => c.value), 1);
+    const goalPct = Math.min(100, Math.round((DAILY_GOAL / maxVal) * 100));
+    const chartHtml = chartData.length ? `<div class="bar-chart">
+      <div class="goal-line" style="bottom:${goalPct}%"></div>
+      ${chartData.map(c =>
+        `<div class="bar-col">
+          <div class="bar-value">${c.value || ''}</div>
+          <div class="bar" style="height:${Math.max(1, Math.round((c.value/maxVal)*100))}%; background:${c.value ? goalColor(c.value) : 'var(--line)'}" title="${c.value} m"></div>
+          <div class="bar-label">${c.label}</div>
+        </div>`
+      ).join('')}
+    </div>` : '';
 
     const otherKeys = Object.keys(groups).filter(k => k !== currentKey).sort().reverse().slice(0, 10);
     const prevRows = otherKeys.map(k => {
