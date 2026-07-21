@@ -194,6 +194,9 @@
   .bar-col .bar-value{font-size:0.58rem; color:var(--ink); font-weight:700; margin-bottom:2px; white-space:nowrap;}
   .bar-col .bar-label{font-size:0.6rem; color:var(--muted); margin-top:4px; white-space:nowrap;}
   .goal-line{position:absolute; left:0; right:0; border-top:1px dashed var(--beige-dark); opacity:0.7;}
+
+  .progress-track{width:100%; height:8px; background:var(--paper2); border-radius:6px; overflow:hidden; margin:2px 0 14px;}
+  .progress-fill{height:100%; border-radius:6px; transition:width 0.3s;}
 </style>
 </head>
 <body>
@@ -311,6 +314,7 @@ const STR = {
     previousPeriods: 'Períodos anteriores',
     menuData: 'Dados',
     exportBtn: 'Exportar dados (cópia de segurança)',
+    exportCsvBtn: 'Exportar CSV (Excel)',
     importBtn: 'Importar dados',
     importWarning: 'Isto substitui os dados atuais pelos do ficheiro escolhido. Continuar?',
     importSuccess: 'Dados importados com sucesso',
@@ -392,6 +396,7 @@ const STR = {
     previousPeriods: 'Vorherige Zeiträume',
     menuData: 'Daten',
     exportBtn: 'Daten exportieren (Sicherung)',
+    exportCsvBtn: 'CSV exportieren (Excel)',
     importBtn: 'Daten importieren',
     importWarning: 'Dies ersetzt die aktuellen Daten durch die der ausgewählten Datei. Fortfahren?',
     importSuccess: 'Daten erfolgreich importiert',
@@ -411,6 +416,13 @@ const GOAL_LOW = 16000;
 function goalColor(val) {
   if (val < GOAL_LOW) return 'var(--neg)';
   if (val < DAILY_GOAL) return 'var(--amber)';
+  return 'var(--pos)';
+}
+function periodGoalColor(total, goal) {
+  if (goal <= 0) return 'var(--ink)';
+  const lowThresh = goal * (GOAL_LOW / DAILY_GOAL);
+  if (total < lowThresh) return 'var(--neg)';
+  if (total < goal) return 'var(--amber)';
   return 'var(--pos)';
 }
 const DAY_PREFIX = 'prod-';
@@ -561,6 +573,39 @@ function notifPrefEnabled() { return localStorage.getItem('notif-pref') !== 'off
 function setNotifPref(v) { localStorage.setItem('notif-pref', v ? 'on' : 'off'); }
 
 // ---------- BACKUP / RESTORE ----------
+function exportCSV() {
+  const days = scanAllDays().filter(isDayClosed).sort((a,b) => a.dateStr.localeCompare(b.dateStr));
+  const header = ['Data','Turno','Total (m)','Media (m/h)','Horas efetivas','Pausa','Probeteile','Notas'];
+  const rows = days.map(d => {
+    const stats = computeDayStats(d.state);
+    return [
+      d.dateStr,
+      d.state.turnoLabel,
+      stats.total,
+      stats.rate.toFixed(1),
+      stats.hoursEfetivas.toFixed(2),
+      d.state.pausa ? 'Sim' : 'Nao',
+      d.state.probeteile ? 'Sim' : 'Nao',
+      (d.state.notes || '').replace(/\r?\n/g, ' ')
+    ];
+  });
+  const escape = (v) => {
+    const s = String(v);
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+  };
+  const csvLines = [header, ...rows].map(r => r.map(escape).join(';'));
+  const csvContent = '\uFEFF' + csvLines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hbw-diario-${todayDateStr()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 function exportAllData() {
   const dump = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -1167,6 +1212,8 @@ function renderDrawer() {
     const currentKey = keyFn(todayDateStr());
     const currentDays = groups[currentKey] || [];
     const currentAgg = periodAgg(currentDays);
+    const periodGoal = currentDays.length * DAILY_GOAL;
+    const periodPct = periodGoal > 0 ? Math.min(100, Math.round((currentAgg.total / periodGoal) * 100)) : 0;
 
     let chartData;
     if (isWeek) {
@@ -1215,9 +1262,13 @@ function renderDrawer() {
         <button class="${!isWeek?'active':''}" id="tabMonth">${t('tabMonth')}</button>
       </div>
       <div class="grid2" style="margin:14px 0;">
-        <div><div class="stat-label">${t('summaryTotal')}</div><div class="stat-value">${currentAgg.total} m</div></div>
+        <div>
+          <div class="stat-label">${t('summaryTotal')}</div>
+          <div class="stat-value"><span style="color:${periodGoalColor(currentAgg.total, periodGoal)}">${currentAgg.total}m</span>${periodGoal > 0 ? `<span class="stat-unit"> / ${periodGoal}m</span>` : ''}</div>
+        </div>
         <div><div class="stat-label">${t('summaryAvg')}</div><div class="stat-value">${currentAgg.rate.toFixed(1)} m/h</div></div>
       </div>
+      ${periodGoal > 0 ? `<div class="progress-track"><div class="progress-fill" style="width:${periodPct}%; background:${periodGoalColor(currentAgg.total, periodGoal)}"></div></div>` : ''}
       ${chartHtml || '<div class="empty-state">' + t('summaryNoData') + '</div>'}
       <h2 style="margin-top:20px;">${t('previousPeriods')}</h2>
       ${prevRows || '<div class="empty-state">' + t('noHistory') + '</div>'}
@@ -1233,11 +1284,13 @@ function renderDrawer() {
       <h2>${t('menuData')}</h2>
       <div class="tiny-note" style="margin-bottom:14px;">${t('dataExplain')}</div>
       <button class="btn-primary" id="btnExport" style="margin-bottom:10px;">${t('exportBtn')}</button>
+      <button class="btn-secondary" id="btnExportCsv" style="margin-bottom:10px;">${t('exportCsvBtn')}</button>
       <button class="btn-secondary" id="btnImport">${t('importBtn')}</button>
       <input type="file" id="importInput" accept="application/json" style="display:none;">
     `;
     document.getElementById('backToMenuD').onclick = () => { view = 'menu'; renderDrawer(); };
     document.getElementById('btnExport').onclick = () => exportAllData();
+    document.getElementById('btnExportCsv').onclick = () => exportCSV();
     document.getElementById('btnImport').onclick = () => document.getElementById('importInput').click();
     document.getElementById('importInput').onchange = (e) => {
       const file = e.target.files[0];
