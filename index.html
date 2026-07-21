@@ -254,7 +254,11 @@ const STR = {
     pausaOn: '☕ Pausa registada (−30 min)',
     historyLabel: 'Histórico de hoje',
     noRecords: 'Sem registos',
-    resetBtn: 'Apagar registos de hoje',
+    endShiftBtn: 'Terminar turno',
+    confirmEndShift: 'Terminar o turno de hoje? Os registos ficam guardados e o dia passa a contar como fechado (aparece nos Recordes e Resumos a partir de agora).',
+    shiftClosedBadge: 'turno fechado',
+    reopenShift: 'Reabrir turno',
+    confirmReopen: 'Reabrir o turno de hoje? Volta a poder registar novos valores.',
     editSchedule: 'Ajustar horário deste turno',
     promptStart: 'Hora de início (HH:MM):',
     promptEnd: 'Hora de fim (HH:MM):',
@@ -265,7 +269,6 @@ const STR = {
     invalidValue: 'Introduza um valor válido',
     logged: 'Registado',
     notifEnabled: 'Notificações ativadas',
-    confirmReset: 'Limpar todos os registos de hoje?',
     reminderBody: 'Hora de registar o valor de metros!',
     menuLang: 'Idioma',
     menuHistory: 'Dias anteriores',
@@ -332,7 +335,11 @@ const STR = {
     pausaOn: '☕ Pause erfasst (−30 Min.)',
     historyLabel: 'Verlauf heute',
     noRecords: 'Keine Einträge',
-    resetBtn: 'Heutige Einträge löschen',
+    endShiftBtn: 'Schicht beenden',
+    confirmEndShift: 'Die heutige Schicht beenden? Die Einträge bleiben erhalten und der Tag zählt ab jetzt als abgeschlossen (erscheint in Rekorden und Übersicht).',
+    shiftClosedBadge: 'Schicht beendet',
+    reopenShift: 'Schicht wieder öffnen',
+    confirmReopen: 'Die heutige Schicht wieder öffnen? Neue Werte können wieder erfasst werden.',
     editSchedule: 'Schichtzeiten dieses Tages anpassen',
     promptStart: 'Startzeit (HH:MM):',
     promptEnd: 'Endzeit (HH:MM):',
@@ -343,7 +350,6 @@ const STR = {
     invalidValue: 'Bitte einen gültigen Wert eingeben',
     logged: 'Erfasst',
     notifEnabled: 'Benachrichtigungen aktiviert',
-    confirmReset: 'Alle heutigen Einträge löschen?',
     reminderBody: 'Zeit, den Meterstand zu erfassen!',
     menuLang: 'Sprache',
     menuHistory: 'Vorherige Tage',
@@ -530,8 +536,10 @@ function fmtMonthLabel(mk) {
   const idx = parseInt(m,10) - 1;
   return `${MONTH_NAMES[lang()][idx]} ${y}`;
 }
+function isDayClosed(d) { return d.key !== todayKey() || !!(d.state && d.state.closed); }
+
 function allDayStats() {
-  return scanAllDays().filter(d => d.dateStr !== todayDateStr()).map(d => ({ dateStr: d.dateStr, ...computeDayStats(d.state) }));
+  return scanAllDays().filter(isDayClosed).map(d => ({ dateStr: d.dateStr, ...computeDayStats(d.state) }));
 }
 function groupBy(list, keyFn) {
   const groups = {};
@@ -629,7 +637,7 @@ function editLog(key, idx, isToday) {
   if (isNaN(num) || num < 0) { showToast(t('invalidValue')); return; }
   s.logs[idx].value = num;
   if (isToday) { state = s; saveState(state); renderMain(); }
-  else { saveDayState(key, s); renderDrawer(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
 }
 
 function deleteLog(key, idx, isToday) {
@@ -640,11 +648,11 @@ function deleteLog(key, idx, isToday) {
   if (s.logs.length === 0) {
     localStorage.removeItem(key);
     if (isToday) { state = null; if (reminderTimeout) clearTimeout(reminderTimeout); renderMain(); }
-    else { view = 'history'; renderDrawer(); }
+    else { if (key === todayKey()) state = null; view = 'history'; renderDrawer(); }
     return;
   }
   if (isToday) { state = s; saveState(state); renderMain(); }
-  else { saveDayState(key, s); renderDrawer(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
 }
 
 function editSchedule(key, isToday) {
@@ -680,7 +688,7 @@ function editSchedule(key, isToday) {
   s.turnoLabel = `${pad(sh)}:${pad(sm)}–${pad(eh)}:${pad(em)}`;
 
   if (isToday) { state = s; saveState(state); scheduleNextReminder(false); renderMain(); }
-  else { saveDayState(key, s); renderDrawer(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
 }
 
 
@@ -739,8 +747,39 @@ function renderMain() {
 
   const isShiftOver = now >= shiftEnd;
   const weekNo = isoWeekNumber(todayDateStr());
+  const closed = !!state.closed;
 
-  header.innerHTML = `${fmtDate(todayDateStr())} · ${t('weekLabel')} ${weekNo} · ${t('shiftLabel')} <b>${state.turnoLabel}</b>${isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : ''}`;
+  header.innerHTML = `${fmtDate(todayDateStr())} · ${t('weekLabel')} ${weekNo} · ${t('shiftLabel')} <b>${state.turnoLabel}</b>${closed ? ' · <span style="color:var(--accent)">' + t('shiftClosedBadge') + '</span>' : (isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : '')}`;
+
+  const forecastCardHtml = closed ? '' : `
+    <div class="card">
+      <div class="grid2">
+        <div>
+          <div class="stat-label">${t('forecastLabel')} (${state.turnoLabel.split('–')[1]})</div>
+          <div class="stat-value"><span style="color:${goalColor(prediction)}">${prediction}m</span></div>
+        </div>
+        <div>
+          <div class="stat-label">${t('predictedNowLabel')}</div>
+          <div class="stat-value">${predictedNow}m</div>
+        </div>
+      </div>
+    </div>`;
+
+  const newLogCardHtml = closed ? '' : `
+    <div class="card">
+      <div class="stat-label">${t('newLogLabel')}</div>
+      <input type="number" id="newValue" inputmode="numeric" step="1" min="0" placeholder="ex: ${totalMetros}">
+      <button class="btn-primary" id="btnAddLog">${t('registerBtn')}</button>
+    </div>`;
+
+  const bottomActionHtml = closed ? `
+    <div style="text-align:center; margin-top:14px;">
+      <span class="tiny-link" id="btnReopenShift">${t('reopenShift')}</span>
+    </div>` : `
+    <button class="btn-primary" id="btnEndShift" style="width:100%; margin-top:6px;">${t('endShiftBtn')}</button>
+    <div style="text-align:center; margin-top:14px;">
+      <span class="tiny-link" id="btnEditSchedule">${t('editSchedule')}</span>
+    </div>`;
 
   app.innerHTML = `
     <div class="card">
@@ -760,24 +799,8 @@ function renderMain() {
       </div>
     </div>
 
-    <div class="card">
-      <div class="grid2">
-        <div>
-          <div class="stat-label">${t('forecastLabel')} (${state.turnoLabel.split('–')[1]})</div>
-          <div class="stat-value"><span style="color:${goalColor(prediction)}">${prediction}m</span></div>
-        </div>
-        <div>
-          <div class="stat-label">${t('predictedNowLabel')}</div>
-          <div class="stat-value">${predictedNow}m</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="stat-label">${t('newLogLabel')}</div>
-      <input type="number" id="newValue" inputmode="numeric" step="1" min="0" placeholder="ex: ${totalMetros}">
-      <button class="btn-primary" id="btnAddLog">${t('registerBtn')}</button>
-    </div>
+    ${forecastCardHtml}
+    ${newLogCardHtml}
 
     <div class="card">
       <button class="${state.pausa ? 'btn-pausa-on' : 'btn-pausa-off'}" id="btnPausa" style="width:100%">
@@ -799,19 +822,18 @@ function renderMain() {
       <textarea id="dayNotes" placeholder="${t('notesPlaceholder')}">${state.notes || ''}</textarea>
     </div>
 
-    <button class="btn-danger" id="btnReset" style="width:100%; margin-top:6px;">${t('resetBtn')}</button>
-    <div style="text-align:center; margin-top:14px;">
-      <span class="tiny-link" id="btnEditSchedule">${t('editSchedule')}</span>
-    </div>
+    ${bottomActionHtml}
   `;
 
   wireHistoryActions(document.getElementById('todayHistory'), true, todayKey());
 
-  document.getElementById('btnAddLog').onclick = () => {
-    const val = parseInt(document.getElementById('newValue').value, 10);
-    if (isNaN(val) || val < 0) { showToast(t('invalidValue')); return; }
-    addLog(val);
-  };
+  if (document.getElementById('btnAddLog')) {
+    document.getElementById('btnAddLog').onclick = () => {
+      const val = parseInt(document.getElementById('newValue').value, 10);
+      if (isNaN(val) || val < 0) { showToast(t('invalidValue')); return; }
+      addLog(val);
+    };
+  }
   document.getElementById('btnPausa').onclick = () => {
     state.pausa = !state.pausa;
     state.pausaAt = state.pausa ? Date.now() : null;
@@ -826,15 +848,29 @@ function renderMain() {
     state.notes = e.target.value;
     saveState(state);
   };
-  document.getElementById('btnReset').onclick = () => {
-    if (confirm(t('confirmReset'))) {
-      localStorage.removeItem(todayKey());
-      state = null;
-      if (reminderTimeout) clearTimeout(reminderTimeout);
-      renderMain();
-    }
-  };
-  document.getElementById('btnEditSchedule').onclick = () => editSchedule(todayKey(), true);
+  if (document.getElementById('btnEndShift')) {
+    document.getElementById('btnEndShift').onclick = () => {
+      if (confirm(t('confirmEndShift'))) {
+        state.closed = true;
+        saveState(state);
+        if (reminderTimeout) clearTimeout(reminderTimeout);
+        renderMain();
+      }
+    };
+  }
+  if (document.getElementById('btnReopenShift')) {
+    document.getElementById('btnReopenShift').onclick = () => {
+      if (confirm(t('confirmReopen'))) {
+        state.closed = false;
+        saveState(state);
+        scheduleNextReminder(false);
+        renderMain();
+      }
+    };
+  }
+  if (document.getElementById('btnEditSchedule')) {
+    document.getElementById('btnEditSchedule').onclick = () => editSchedule(todayKey(), true);
+  }
 }
 
 function addLog(val) {
@@ -963,7 +999,7 @@ function renderDrawer() {
   }
 
   else if (view === 'history') {
-    const days = scanAllDays().filter(d => d.key !== todayKey());
+    const days = scanAllDays().filter(isDayClosed);
     const rows = days.map(d => {
       const stats = computeDayStats(d.state);
       return `<div class="day-list-item" data-key="${d.key}">
@@ -1009,12 +1045,13 @@ function renderDrawer() {
       if (!s2) return;
       s2.notes = e.target.value;
       saveDayState(viewingDayKey, s2);
+      if (viewingDayKey === todayKey()) state = s2;
     };
     document.getElementById('btnEditScheduleDay').onclick = () => editSchedule(viewingDayKey, false);
   }
 
   else if (view === 'records') {
-    const days = scanAllDays().filter(d => d.key !== todayKey());
+    const days = scanAllDays().filter(isDayClosed);
     let bestTotal = null, bestRate = null;
     days.forEach(d => {
       const stats = computeDayStats(d.state);
