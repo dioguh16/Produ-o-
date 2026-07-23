@@ -71,6 +71,8 @@
   .history-time{color:var(--muted); flex-shrink:0;}
   .history-val{flex:1; text-align:right; padding-right:4px;}
   .history-delta{color:var(--pos); font-size:0.8rem; flex-shrink:0; min-width:48px; text-align:right;}
+  .history-note{background:var(--paper2); border-radius:8px; padding:6px 8px;}
+  .history-note-text{text-align:left; flex:1; white-space:normal; word-break:break-word; font-style:italic; color:var(--ink);}
   .history-actions{display:flex; gap:4px; flex-shrink:0;}
   .icon-btn{
     background:var(--paper2); border:1px solid var(--line); color:var(--ink);
@@ -298,8 +300,11 @@ const STR = {
     dayDetailTurno: 'Turno',
     editPrompt: 'Novo valor (metros):',
     confirmDeleteLog: 'Apagar este registo?',
-    notesLabel: 'Notas do dia',
-    notesPlaceholder: 'ex: paragem na linha 2, madeira húmida, etc.',
+    quickNoteLabel: 'Nova nota',
+    quickNotePlaceholder: 'ex: paragem na linha 2, madeira húmida...',
+    addNoteBtn: 'Adicionar nota',
+    editNotePrompt: 'Editar nota:',
+    confirmDeleteNoteEntry: 'Apagar esta nota?',
     hoursLabel: 'Horas efetivas',
     pausaSince: 'desde',
     menuNotif: 'Notificações',
@@ -380,8 +385,11 @@ const STR = {
     dayDetailTurno: 'Schicht',
     editPrompt: 'Neuer Wert (Meter):',
     confirmDeleteLog: 'Diesen Eintrag löschen?',
-    notesLabel: 'Notizen zum Tag',
-    notesPlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz, usw.',
+    quickNoteLabel: 'Neue Notiz',
+    quickNotePlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz...',
+    addNoteBtn: 'Notiz hinzufügen',
+    editNotePrompt: 'Notiz bearbeiten:',
+    confirmDeleteNoteEntry: 'Diese Notiz löschen?',
     hoursLabel: 'Effektive Stunden',
     pausaSince: 'seit',
     menuNotif: 'Benachrichtigungen',
@@ -587,7 +595,10 @@ function exportCSV() {
       stats.hoursEfetivas.toFixed(2),
       d.state.pausa ? 'Sim' : 'Nao',
       d.state.probeteile ? 'Sim' : 'Nao',
-      (d.state.notes || '').replace(/\r?\n/g, ' ')
+      ((d.state.textNotes && d.state.textNotes.length)
+        ? d.state.textNotes.map(n => `${fmtTime(n.time)} ${n.text}`).join(' | ')
+        : (d.state.notes || '')
+      ).replace(/\r?\n/g, ' ')
     ];
   });
   const escape = (v) => {
@@ -647,18 +658,32 @@ function showToast(msg) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-function buildHistoryHtml(logs, containerId, isToday, dayKey) {
-  const items = logs.map((log, i) => ({ log, i })).slice().reverse();
-  return items.map(({log, i}) => {
-    const prev = i > 0 ? logs[i-1].value : 0;
-    const delta = log.value - prev;
-    return `<div class="history-item">
-      <span class="history-time">${fmtTime(log.time)}</span>
-      <span class="history-val">${log.value} m</span>
-      <span class="history-delta">${i > 0 ? (delta>=0?'+':'') + delta + ' m' : '—'}</span>
+function buildHistoryHtml(s) {
+  const logs = (s.logs || []).map((log, i) => ({ type: 'log', time: log.time, value: log.value, idx: i }));
+  const notes = (s.textNotes || []).map((n, i) => ({ type: 'note', time: n.time, text: n.text, idx: i }));
+  const timeline = logs.concat(notes).sort((a,b) => a.time - b.time);
+
+  return timeline.slice().reverse().map(item => {
+    if (item.type === 'log') {
+      const prevLogs = logs.filter(l => l.idx < item.idx);
+      const prev = item.idx > 0 ? logs[item.idx - 1].value : 0;
+      const delta = item.value - prev;
+      return `<div class="history-item">
+        <span class="history-time">${fmtTime(item.time)}</span>
+        <span class="history-val">${item.value} m</span>
+        <span class="history-delta">${item.idx > 0 ? (delta>=0?'+':'') + delta + ' m' : '—'}</span>
+        <span class="history-actions">
+          <button class="icon-btn edit-log" data-idx="${item.idx}">✎</button>
+          <button class="icon-btn delete delete-log" data-idx="${item.idx}">🗑</button>
+        </span>
+      </div>`;
+    }
+    return `<div class="history-item history-note">
+      <span class="history-time">${fmtTime(item.time)}</span>
+      <span class="history-val history-note-text">📝 ${escapeHtml(item.text)}</span>
       <span class="history-actions">
-        <button class="icon-btn edit-log" data-idx="${i}">✎</button>
-        <button class="icon-btn delete delete-log" data-idx="${i}">🗑</button>
+        <button class="icon-btn edit-note" data-idx="${item.idx}">✎</button>
+        <button class="icon-btn delete delete-note" data-idx="${item.idx}">🗑</button>
       </span>
     </div>`;
   }).join('');
@@ -671,6 +696,39 @@ function wireHistoryActions(container, isToday, dayKey) {
   container.querySelectorAll('.delete-log').forEach(btn => {
     btn.onclick = () => deleteLog(dayKey, parseInt(btn.dataset.idx,10), isToday);
   });
+  container.querySelectorAll('.edit-note').forEach(btn => {
+    btn.onclick = () => editNote(dayKey, parseInt(btn.dataset.idx,10), isToday);
+  });
+  container.querySelectorAll('.delete-note').forEach(btn => {
+    btn.onclick = () => deleteNote(dayKey, parseInt(btn.dataset.idx,10), isToday);
+  });
+}
+
+function addNoteEntry(text) {
+  if (!state.textNotes) state.textNotes = [];
+  state.textNotes.push({ time: Date.now(), text });
+  saveState(state);
+  renderMain();
+}
+
+function editNote(key, idx, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s || !s.textNotes) return;
+  const current = s.textNotes[idx].text;
+  const val = prompt(t('editNotePrompt'), current);
+  if (val === null || val.trim() === '') return;
+  s.textNotes[idx].text = val.trim();
+  if (isToday) { state = s; saveState(state); renderMain(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
+}
+
+function deleteNote(key, idx, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s || !s.textNotes) return;
+  if (!confirm(t('confirmDeleteNoteEntry'))) return;
+  s.textNotes.splice(idx, 1);
+  if (isToday) { state = s; saveState(state); renderMain(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
 }
 
 function editLog(key, idx, isToday) {
@@ -760,7 +818,7 @@ function renderMain() {
         date: todayKey(), turnoId: shift.id, turnoLabel: shift.label,
         shiftLengthH: SHIFT_LENGTH_H,
         shiftStart: shiftStartDate(shift, now).getTime(), pausa: false, notes: '',
-        logs: [{ time: now.getTime(), value: val }], nextReminder: now.getTime() + 3600000
+        logs: [{ time: now.getTime(), value: val }], textNotes: [], nextReminder: now.getTime() + 3600000
       };
       saveState(state);
       requestNotifPermissionIfNeeded();
@@ -859,20 +917,30 @@ function renderMain() {
       </label>
     </div>
 
+    ${closed ? '' : `
     <div class="card">
-      <div class="stat-label" style="margin-bottom:8px;">${t('historyLabel')}</div>
-      <div class="history" id="todayHistory">${buildHistoryHtml(state.logs, 'todayHistory', true, todayKey()) || '<div class="empty-state">' + t('noRecords') + '</div>'}</div>
-    </div>
+      <div class="stat-label">${t('quickNoteLabel')}</div>
+      <input type="text" id="newNoteText" placeholder="${t('quickNotePlaceholder')}">
+      <button class="btn-secondary" id="btnAddNote" style="margin-top:10px;">${t('addNoteBtn')}</button>
+    </div>`}
 
     <div class="card">
-      <div class="stat-label" style="margin-bottom:8px;">${t('notesLabel')}</div>
-      <textarea id="dayNotes" placeholder="${t('notesPlaceholder')}">${state.notes || ''}</textarea>
+      <div class="stat-label" style="margin-bottom:8px;">${t('historyLabel')}</div>
+      <div class="history" id="todayHistory">${buildHistoryHtml(state) || '<div class="empty-state">' + t('noRecords') + '</div>'}</div>
     </div>
 
     ${bottomActionHtml}
   `;
 
   wireHistoryActions(document.getElementById('todayHistory'), true, todayKey());
+
+  if (document.getElementById('btnAddNote')) {
+    document.getElementById('btnAddNote').onclick = () => {
+      const txt = document.getElementById('newNoteText').value.trim();
+      if (!txt) { showToast(t('invalidValue')); return; }
+      addNoteEntry(txt);
+    };
+  }
 
   if (document.getElementById('btnAddLog')) {
     document.getElementById('btnAddLog').onclick = () => {
@@ -889,10 +957,6 @@ function renderMain() {
   };
   document.getElementById('probeteileCheck').onchange = (e) => {
     state.probeteile = e.target.checked;
-    saveState(state);
-  };
-  document.getElementById('dayNotes').onblur = (e) => {
-    state.notes = e.target.value;
     saveState(state);
   };
   if (document.getElementById('btnEndShift')) {
@@ -1078,22 +1142,14 @@ function renderDrawer() {
         <div><div class="stat-label">${t('dayDetailAvg')}</div><div class="stat-value">${stats.rate.toFixed(1)} m/h</div></div>
       </div>
       <div style="margin-bottom:14px;"><div class="stat-label">${t('hoursLabel')}</div><div class="stat-value" style="font-size:1.1rem;">${stats.hoursEfetivas.toFixed(1)} h</div></div>
-      <div class="history" id="dayDetailHistory">${buildHistoryHtml(s.logs, 'dayDetailHistory', false, viewingDayKey)}</div>
-      <h2>${t('notesLabel')}</h2>
-      <textarea id="dayDetailNotes" placeholder="${t('notesPlaceholder')}">${s.notes || ''}</textarea>
+      <div class="stat-label" style="margin-bottom:8px;">${t('historyLabel')}</div>
+      <div class="history" id="dayDetailHistory">${buildHistoryHtml(s) || '<div class="empty-state">' + t('noRecords') + '</div>'}</div>
       <div style="text-align:center; margin-top:14px;">
         <span class="tiny-link" id="btnEditScheduleDay">${t('editSchedule')}</span>
       </div>
     `;
     document.getElementById('backToHistory').onclick = () => { view = 'history'; renderDrawer(); };
     wireHistoryActions(document.getElementById('dayDetailHistory'), false, viewingDayKey);
-    document.getElementById('dayDetailNotes').onblur = (e) => {
-      const s2 = loadState(viewingDayKey);
-      if (!s2) return;
-      s2.notes = e.target.value;
-      saveDayState(viewingDayKey, s2);
-      if (viewingDayKey === todayKey()) state = s2;
-    };
     document.getElementById('btnEditScheduleDay').onclick = () => editSchedule(viewingDayKey, false);
   }
 
@@ -1375,7 +1431,11 @@ document.addEventListener('visibilitychange', () => {
 
 renderAll();
 if (state) scheduleNextReminder(false);
-setInterval(renderMain, 30000);
+setInterval(() => {
+  const active = document.activeElement;
+  const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+  if (!isTyping) renderMain();
+}, 30000);
 
 setTimeout(() => {
   const splash = document.getElementById('splashScreen');
