@@ -304,6 +304,7 @@ const STR = {
     quickNotePlaceholder: 'ex: paragem na linha 2, madeira húmida...',
     addNoteBtn: 'Adicionar nota',
     editNotePrompt: 'Editar nota:',
+    editNoteTimePrompt: 'Hora da nota (HH:MM):',
     confirmDeleteNoteEntry: 'Apagar esta nota?',
     hoursLabel: 'Horas efetivas',
     pausaSince: 'desde',
@@ -389,6 +390,7 @@ const STR = {
     quickNotePlaceholder: 'z.B. Stillstand an Linie 2, feuchtes Holz...',
     addNoteBtn: 'Notiz hinzufügen',
     editNotePrompt: 'Notiz bearbeiten:',
+    editNoteTimePrompt: 'Uhrzeit der Notiz (HH:MM):',
     confirmDeleteNoteEntry: 'Diese Notiz löschen?',
     hoursLabel: 'Effektive Stunden',
     pausaSince: 'seit',
@@ -714,10 +716,23 @@ function addNoteEntry(text) {
 function editNote(key, idx, isToday) {
   const s = isToday ? state : loadState(key);
   if (!s || !s.textNotes) return;
-  const current = s.textNotes[idx].text;
-  const val = prompt(t('editNotePrompt'), current);
+  const note = s.textNotes[idx];
+  const val = prompt(t('editNotePrompt'), note.text);
   if (val === null || val.trim() === '') return;
-  s.textNotes[idx].text = val.trim();
+
+  const d = new Date(note.time);
+  const pad = (n) => String(n).padStart(2, '0');
+  const timeDefault = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const timeVal = prompt(t('editNoteTimePrompt'), timeDefault);
+  if (timeVal === null) return;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(timeVal.trim());
+  if (!m) { showToast(t('invalidTime')); return; }
+  const hh = parseInt(m[1],10), mm = parseInt(m[2],10);
+  if (hh > 23 || mm > 59) { showToast(t('invalidTime')); return; }
+  d.setHours(hh, mm, 0, 0);
+
+  note.text = val.trim();
+  note.time = d.getTime();
   if (isToday) { state = s; saveState(state); renderMain(); }
   else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
 }
