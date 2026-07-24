@@ -73,6 +73,7 @@
   .history-delta{color:var(--pos); font-size:0.8rem; flex-shrink:0; min-width:48px; text-align:right;}
   .history-note{background:var(--paper2); border-radius:8px; padding:6px 8px;}
   .history-note-text{text-align:left; flex:1; white-space:normal; word-break:break-word; font-style:italic; color:var(--ink);}
+  .note-time-edit{text-decoration:underline dotted; cursor:pointer;}
   .history-actions{display:flex; gap:4px; flex-shrink:0;}
   .icon-btn{
     background:var(--paper2); border:1px solid var(--line); color:var(--ink);
@@ -681,7 +682,7 @@ function buildHistoryHtml(s) {
       </div>`;
     }
     return `<div class="history-item history-note">
-      <span class="history-time">${fmtTime(item.time)}</span>
+      <span class="history-time note-time-edit" data-idx="${item.idx}">${fmtTime(item.time)}</span>
       <span class="history-val history-note-text">📝 ${escapeHtml(item.text)}</span>
       <span class="history-actions">
         <button class="icon-btn edit-note" data-idx="${item.idx}">✎</button>
@@ -701,6 +702,9 @@ function wireHistoryActions(container, isToday, dayKey) {
   container.querySelectorAll('.edit-note').forEach(btn => {
     btn.onclick = () => editNote(dayKey, parseInt(btn.dataset.idx,10), isToday);
   });
+  container.querySelectorAll('.note-time-edit').forEach(el => {
+    el.onclick = () => editNoteTime(dayKey, parseInt(el.dataset.idx,10), isToday);
+  });
   container.querySelectorAll('.delete-note').forEach(btn => {
     btn.onclick = () => deleteNote(dayKey, parseInt(btn.dataset.idx,10), isToday);
   });
@@ -719,7 +723,15 @@ function editNote(key, idx, isToday) {
   const note = s.textNotes[idx];
   const val = prompt(t('editNotePrompt'), note.text);
   if (val === null || val.trim() === '') return;
+  note.text = val.trim();
+  if (isToday) { state = s; saveState(state); renderMain(); }
+  else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
+}
 
+function editNoteTime(key, idx, isToday) {
+  const s = isToday ? state : loadState(key);
+  if (!s || !s.textNotes) return;
+  const note = s.textNotes[idx];
   const d = new Date(note.time);
   const pad = (n) => String(n).padStart(2, '0');
   const timeDefault = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -730,8 +742,6 @@ function editNote(key, idx, isToday) {
   const hh = parseInt(m[1],10), mm = parseInt(m[2],10);
   if (hh > 23 || mm > 59) { showToast(t('invalidTime')); return; }
   d.setHours(hh, mm, 0, 0);
-
-  note.text = val.trim();
   note.time = d.getTime();
   if (isToday) { state = s; saveState(state); renderMain(); }
   else { saveDayState(key, s); if (key === todayKey()) state = s; renderDrawer(); }
