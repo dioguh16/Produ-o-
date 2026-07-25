@@ -1,5 +1,9 @@
-const CACHE = 'producao-v22';
-const FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'producao-v24';
+const FILES = [
+  './index.html', './manifest.json', './icon-192.png', './icon-512.png',
+  './constants.js', './data.js', './entries.js', './render-main.js',
+  './reminders.js', './render-drawer.js', './app.js'
+];
 
 let currentLang = 'pt';
 
