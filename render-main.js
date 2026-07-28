@@ -1,8 +1,36 @@
+function computeLiveStats(state) {
+  const shiftLengthH = state.shiftLengthH || SHIFT_LENGTH_H;
+  const shiftStart = state.shiftStart;
+  const shiftEnd = shiftStart + shiftLengthH * 3600000;
+  const now = Date.now();
+  const lastLog = state.logs[state.logs.length - 1];
+  const totalMetros = lastLog.value;
+
+  const elapsedRealH = Math.max((now - shiftStart) / 3600000, 0.02);
+  const effShiftH = shiftLengthH - (state.pausa ? BREAK_H : 0);
+
+  // Taxa e previsão de fim de turno: fixas com base na última leitura, não avançam com o relógio
+  const hoursAtLastLog = Math.max((lastLog.time - shiftStart) / 3600000, 0.02);
+  const rate = totalMetros / hoursAtLastLog;
+  const remainingAtLastLogH = Math.max(effShiftH - hoursAtLastLog, 0);
+  const prediction = Math.round(totalMetros + rate * remainingAtLastLogH);
+
+  // Previsão para agora: usa a mesma taxa, mas avança com o tempo desde a última leitura
+  const hoursSinceLastLog = Math.max((now - lastLog.time) / 3600000, 0);
+  const predictedNow = Math.round(totalMetros + rate * hoursSinceLastLog);
+
+  const isShiftOver = now >= shiftEnd;
+  const statusColor = goalColor(prediction);
+
+  return { shiftLengthH, shiftStart, shiftEnd, now, totalMetros, elapsedRealH, effShiftH, rate, prediction, predictedNow, isShiftOver, statusColor };
+}
+
 function renderMain() {
   const app = document.getElementById('app');
   const header = document.getElementById('headerSub');
 
   if (!state) {
+    updateStatusNotification();
     header.textContent = t('firstLogTitle');
     app.innerHTML = `
       <div class="card setup">
@@ -31,30 +59,11 @@ function renderMain() {
   }
 
   const shift = SHIFTS.find(s => s.id === state.turnoId);
-  const shiftLengthH = state.shiftLengthH || SHIFT_LENGTH_H;
-  const shiftStart = state.shiftStart;
-  const shiftEnd = shiftStart + shiftLengthH * 3600000;
-  const now = Date.now();
-  const lastLog = state.logs[state.logs.length - 1];
-  const totalMetros = lastLog.value;
+  const stats = computeLiveStats(state);
+  const { shiftLengthH, shiftEnd, now, totalMetros, elapsedRealH, effShiftH, rate, prediction, predictedNow, isShiftOver, statusColor } = stats;
 
-  const elapsedRealH = Math.max((now - shiftStart) / 3600000, 0.02);
-  const effShiftH = shiftLengthH - (state.pausa ? BREAK_H : 0);
-
-  // Taxa e previsão de fim de turno: fixas com base na última leitura, não avançam com o relógio
-  const hoursAtLastLog = Math.max((lastLog.time - shiftStart) / 3600000, 0.02);
-  const rate = totalMetros / hoursAtLastLog;
-  const remainingAtLastLogH = Math.max(effShiftH - hoursAtLastLog, 0);
-  const prediction = Math.round(totalMetros + rate * remainingAtLastLogH);
-
-  // Previsão para agora: usa a mesma taxa, mas avança com o tempo desde a última leitura
-  const hoursSinceLastLog = Math.max((now - lastLog.time) / 3600000, 0);
-  const predictedNow = Math.round(totalMetros + rate * hoursSinceLastLog);
-
-  const isShiftOver = now >= shiftEnd;
   const weekNo = isoWeekNumber(todayDateStr());
   const closed = !!state.closed;
-  const statusColor = goalColor(prediction);
 
   header.innerHTML = `${fmtDate(todayDateStr())} · ${t('weekLabel')} ${weekNo} · ${t('shiftLabel')} <b>${state.turnoLabel}</b>${closed ? ' · <span style="color:var(--accent)">' + t('shiftClosedBadge') + '</span>' : (isShiftOver ? ' · <span style="color:var(--accent)">' + t('shiftOver') + '</span>' : '')}`;
 
@@ -184,6 +193,8 @@ function renderMain() {
   if (document.getElementById('btnEditSchedule')) {
     document.getElementById('btnEditSchedule').onclick = () => editSchedule(todayKey(), true);
   }
+
+  updateStatusNotification();
 }
 
 function addLog(val) {
