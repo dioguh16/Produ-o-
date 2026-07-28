@@ -3,9 +3,14 @@ document.getElementById('btnCloseDrawer').onclick = closeDrawer;
 document.getElementById('overlay').onclick = closeDrawer;
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js').then(reg => {
+  navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(reg => {
     swReg = reg;
     if (reg.active) reg.active.postMessage({ type: 'SET_LANG', lang: lang() });
+    updateStatusNotification();
+    reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       if (newWorker) newWorker.addEventListener('statechange', () => {
@@ -13,6 +18,8 @@ if ('serviceWorker' in navigator) {
       });
     });
   }).catch(() => {});
+
+  navigator.serviceWorker.ready.then(() => updateStatusNotification());
 
   let refreshedOnce = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {

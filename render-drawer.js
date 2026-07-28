@@ -87,7 +87,13 @@ function renderDrawer() {
     `;
     document.getElementById('langPt').onclick = () => { setLang('pt'); renderAll(); };
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };
-    document.getElementById('notifToggle').onchange = (e) => { setNotifPref(e.target.checked); updateStatusNotification(); };
+    document.getElementById('notifToggle').onchange = async (e) => {
+      setNotifPref(e.target.checked);
+      if (e.target.checked && 'Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      updateStatusNotification();
+    };
     document.getElementById('goHistory').onclick = () => { view = 'history'; renderDrawer(); };
     document.getElementById('goSummary').onclick = () => { view = 'summary'; renderDrawer(); };
     document.getElementById('goRecords').onclick = () => { view = 'records'; renderDrawer(); };
