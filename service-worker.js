@@ -1,6 +1,6 @@
-const CACHE = 'producao-v26';
+const CACHE = 'producao-v27';
 const FILES = [
-  './index.html', './manifest.json', './icon-192.png', './icon-512.png',
+  './index.html', './manifest.json', './icon-192.png', './icon-512.png', './badge-monochrome.png',
   './constants.js', './data.js', './entries.js', './render-main.js',
   './reminders.js', './render-drawer.js', './app.js'
 ];
@@ -59,6 +59,7 @@ self.addEventListener('message', (event) => {
       requireInteraction: true,
       silent: true,
       icon: 'icon-192.png',
+      badge: 'badge-monochrome.png',
       actions: [
         { action: 'log', type: 'text', title: t.action, placeholder: t.ph }
       ],
@@ -90,6 +91,7 @@ self.addEventListener('notificationclick', (event) => {
             body: t.savedBody(value),
             tag: 'pending-log',
             icon: 'icon-192.png',
+            badge: 'badge-monochrome.png',
             data: { pendingValue: value }
           });
         }
