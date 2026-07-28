@@ -216,6 +216,24 @@
   .bar-labels{display:flex; gap:6px; margin-top:4px; overflow-x:auto;}
   .bar-label-item{min-width:26px; flex-shrink:0; text-align:center; font-size:0.6rem; color:var(--muted); white-space:nowrap;}
   .goal-line{position:absolute; left:0; right:0; border-top:2px dashed var(--ink); opacity:0.55; z-index:0;}
+  .month-nav{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .month-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:15px;}
+  .month-nav button:disabled{opacity:0.35;}
+  .month-nav span{font-size:13px; font-weight:800;}
+  .cal-weekdays{display:grid; grid-template-columns:repeat(7,1fr); text-align:center; font-size:10px; color:var(--muted); margin-bottom:6px; font-weight:700;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px;}
+  .cal-day{aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; border-radius:9px; position:relative; background:var(--paper2); color:var(--muted); border:1px solid var(--line);}
+  .cal-day.empty{visibility:hidden;}
+  .cal-day.today-outline{box-shadow:inset 0 0 0 2px var(--ink);}
+  .cal-day.pos{background:rgba(92,122,74,0.18); color:var(--pos); border-color:rgba(92,122,74,0.45); cursor:pointer;}
+  .cal-day.amber{background:rgba(201,147,46,0.18); color:var(--amber); border-color:rgba(201,147,46,0.45); cursor:pointer;}
+  .cal-day.neg{background:rgba(162,79,58,0.18); color:var(--neg); border-color:rgba(162,79,58,0.45); cursor:pointer;}
+  .cal-legend{display:flex; gap:12px; margin-top:12px; font-size:0.62rem; color:var(--muted); flex-wrap:wrap;}
+  .cal-legend span{display:flex; align-items:center; gap:5px;}
+  .cal-dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+  .cal-dot.pos{background:var(--pos);}
+  .cal-dot.amber{background:var(--amber);}
+  .cal-dot.neg{background:var(--neg);}
 
   .progress-track{width:100%; height:8px; background:var(--paper2); border-radius:6px; overflow:hidden; margin:2px 0 14px;}
   .progress-fill{height:100%; border-radius:6px; transition:width 0.3s;}

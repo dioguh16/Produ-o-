@@ -95,7 +95,7 @@ function renderDrawer() {
       updateStatusNotification();
     };
     document.getElementById('goHistory').onclick = () => { view = 'history'; renderDrawer(); };
-    document.getElementById('goSummary').onclick = () => { view = 'summary'; renderDrawer(); };
+    document.getElementById('goSummary').onclick = () => { view = 'summary'; summaryMonthOffset = 0; renderDrawer(); };
     document.getElementById('goRecords').onclick = () => { view = 'records'; renderDrawer(); };
     document.getElementById('goNotes').onclick = () => { view = 'notes'; renderDrawer(); };
     document.getElementById('goData').onclick = () => { view = 'data'; renderDrawer(); };
@@ -259,40 +259,84 @@ function renderDrawer() {
     const isWeek = summaryMode === 'week';
     const keyFn = isWeek ? weekStartKey : monthKeyOf;
     const groups = groupBy(list, keyFn);
-    const currentKey = keyFn(todayDateStr());
+
+    // Para a semana mantém-se sempre a semana atual; para o mês, navega-se com summaryMonthOffset.
+    let currentKey, viewYear, viewMonth;
+    if (isWeek) {
+      currentKey = keyFn(todayDateStr());
+    } else {
+      const now = new Date();
+      const viewDate = new Date(now.getFullYear(), now.getMonth() + summaryMonthOffset, 1);
+      viewYear = viewDate.getFullYear();
+      viewMonth = viewDate.getMonth();
+      currentKey = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}`;
+    }
     const currentDays = groups[currentKey] || [];
     const currentAgg = periodAgg(currentDays);
     const periodGoal = currentDays.length * DAILY_GOAL;
     const periodPct = periodGoal > 0 ? Math.min(100, Math.round((currentAgg.total / periodGoal) * 100)) : 0;
 
-    let chartData;
+    let bodyHtml;
     if (isWeek) {
       const labels = WEEKDAY_LABELS[lang()];
-      chartData = [];
+      const chartData = [];
       for (let i = 0; i < 7; i++) {
         const ds = addDaysStr(currentKey, i);
         const entry = currentDays.find(d => d.dateStr === ds);
         chartData.push({ label: labels[i], value: entry ? entry.total : 0 });
       }
+      const TRACK_H = 100;
+      const maxVal = Math.max(DAILY_GOAL, ...chartData.map(c => c.value), 1);
+      const goalPx = Math.round((DAILY_GOAL / maxVal) * TRACK_H);
+      bodyHtml = chartData.length ? `
+        <div class="bar-chart">
+          <div class="goal-line" style="bottom:${goalPx}px"></div>
+          ${chartData.map(c =>
+            `<div class="bar-col">
+              <div class="bar-value">${c.value || ''}</div>
+              <div class="bar" style="height:${c.value ? Math.max(2, Math.round((c.value/maxVal)*TRACK_H)) : 0}px; background:${c.value ? goalColor(c.value) : 'var(--line)'}" title="${c.value} m"></div>
+            </div>`
+          ).join('')}
+        </div>
+        <div class="bar-labels">${chartData.map(c => `<div class="bar-label-item">${c.label}</div>`).join('')}</div>
+      ` : '<div class="empty-state">' + t('summaryNoData') + '</div>';
     } else {
-      chartData = currentDays.slice().sort((a,b) => a.dateStr.localeCompare(b.dateStr))
-        .map(d => ({ label: d.dateStr.slice(8,10), value: d.total }));
+      const firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+      const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+      const dayByDate = {};
+      currentDays.forEach(d => { dayByDate[d.dateStr] = d; });
+      const todayStr = todayDateStr();
+      const monthLabel = fmtMonthLabel(currentKey);
+      const weekdayLetters = { pt: ['D','S','T','Q','Q','S','S'], de: ['S','M','D','M','D','F','S'] }[lang()] || ['D','S','T','Q','Q','S','S'];
+
+      let cells = '';
+      for (let i = 0; i < firstWeekday; i++) cells += '<div class="cal-day empty"></div>';
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const entry = dayByDate[dateStr];
+        const todayCls = dateStr === todayStr ? ' today-outline' : '';
+        if (entry) {
+          const c = entry.total < GOAL_LOW ? 'neg' : (entry.total < DAILY_GOAL ? 'amber' : 'pos');
+          cells += `<div class="cal-day ${c}${todayCls}" data-key="${DAY_PREFIX}${dateStr}" title="${entry.total} m">${d}</div>`;
+        } else {
+          cells += `<div class="cal-day${todayCls}">${d}</div>`;
+        }
+      }
+      bodyHtml = `
+        <div class="month-nav">
+          <button id="calMonthPrev">‹</button>
+          <span>${monthLabel}</span>
+          <button id="calMonthNext" ${summaryMonthOffset >= 0 ? 'disabled' : ''}>›</button>
+        </div>
+        <div class="cal-weekdays">${weekdayLetters.map(l => `<span>${l}</span>`).join('')}</div>
+        <div class="cal-grid">${cells}</div>
+        <div class="cal-legend">
+          <span><i class="cal-dot pos"></i>${t('legendGoalMet')}</span>
+          <span><i class="cal-dot amber"></i>${t('legendBelowGoal')}</span>
+          <span><i class="cal-dot neg"></i>${t('legendLow')}</span>
+        </div>
+      `;
     }
-    const TRACK_H = 100;
-    const maxVal = Math.max(DAILY_GOAL, ...chartData.map(c => c.value), 1);
-    const goalPx = Math.round((DAILY_GOAL / maxVal) * TRACK_H);
-    const chartHtml = chartData.length ? `
-      <div class="bar-chart">
-        <div class="goal-line" style="bottom:${goalPx}px"></div>
-        ${chartData.map(c =>
-          `<div class="bar-col">
-            <div class="bar-value">${c.value || ''}</div>
-            <div class="bar" style="height:${c.value ? Math.max(2, Math.round((c.value/maxVal)*TRACK_H)) : 0}px; background:${c.value ? goalColor(c.value) : 'var(--line)'}" title="${c.value} m"></div>
-          </div>`
-        ).join('')}
-      </div>
-      <div class="bar-labels">${chartData.map(c => `<div class="bar-label-item">${c.label}</div>`).join('')}</div>
-    ` : '';
 
     const otherKeys = Object.keys(groups).filter(k => k !== currentKey).sort().reverse().slice(0, 10);
     const prevRows = otherKeys.map(k => {
@@ -322,13 +366,20 @@ function renderDrawer() {
         <div><div class="stat-label">${t('summaryAvg')}</div><div class="stat-value">${currentAgg.rate.toFixed(1)} m/h</div></div>
       </div>
       ${periodGoal > 0 ? `<div class="progress-track"><div class="progress-fill" style="width:${periodPct}%; background:${periodGoalColor(currentAgg.total, periodGoal)}"></div></div>` : ''}
-      ${chartHtml || '<div class="empty-state">' + t('summaryNoData') + '</div>'}
+      ${bodyHtml}
       <h2 style="margin-top:20px;">${t('previousPeriods')}</h2>
       ${prevRows || '<div class="empty-state">' + t('noHistory') + '</div>'}
     `;
     document.getElementById('backToMenuS').onclick = () => { view = 'menu'; renderDrawer(); };
     document.getElementById('tabWeek').onclick = () => { summaryMode = 'week'; renderDrawer(); };
     document.getElementById('tabMonth').onclick = () => { summaryMode = 'month'; renderDrawer(); };
+    if (!isWeek) {
+      document.getElementById('calMonthPrev').onclick = () => { summaryMonthOffset--; renderDrawer(); };
+      document.getElementById('calMonthNext').onclick = () => { summaryMonthOffset = Math.min(0, summaryMonthOffset+1); renderDrawer(); };
+      content.querySelectorAll('.cal-day[data-key]').forEach(el => {
+        el.onclick = () => { viewingDayKey = el.dataset.key; view = 'day-detail'; renderDrawer(); };
+      });
+    }
   }
 
   else if (view === 'data') {

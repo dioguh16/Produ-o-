@@ -6,6 +6,7 @@ let editingNoteId = null;
 let editingPhotos = [];
 let viewingDayKey = null;
 let summaryMode = 'week';
+let summaryMonthOffset = 0; // 0 = mês atual, -1 = mês anterior, etc. (vista de calendário do Resumo)
 
 function showToast(msg) {
   const el = document.getElementById('toast');
