@@ -84,6 +84,7 @@ function renderDrawer() {
       <div class="menu-item" id="goNotes"><span>${t('menuNotes')}</span><span class="arrow">›</span></div>
       <h2>${t('menuData')}</h2>
       <div class="menu-item" id="goData"><span>${t('menuData')}</span><span class="arrow">›</span></div>
+      <div class="app-version">v${APP_VERSION}</div>
     `;
     document.getElementById('langPt').onclick = () => { setLang('pt'); renderAll(); };
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };

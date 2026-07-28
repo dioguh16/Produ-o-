@@ -1,3 +1,8 @@
+// Versão atual da app — mostrada no fundo do menu lateral.
+// Atualizar este número sempre que se gera um novo zip de entrega.
+// Convenção do nome do ficheiro entregue: HBW-v<APP_VERSION>.zip (ex.: HBW-v1.2.zip)
+const APP_VERSION = '1.2';
+
 const STR = {
   pt: {
     firstLogTitle: 'Primeiro registo do dia',
