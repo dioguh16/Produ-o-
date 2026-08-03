@@ -68,6 +68,10 @@ function renderDrawer() {
         <button class="${L==='pt'?'active':''}" id="langPt">Português</button>
         <button class="${L==='de'?'active':''}" id="langDe">Deutsch</button>
       </div>
+      <div class="menu-item" style="cursor:default; margin-top:10px;">
+        <span>${t('splashToggleLabel')}</span>
+        <label class="switch"><input type="checkbox" id="splashToggle" ${splashEnabled()?'checked':''}><span class="slider"></span></label>
+      </div>
       <h2>${t('menuNotif')}</h2>
       <div class="menu-item" style="cursor:default;">
         <span>${t('notifToggleLabel')}</span>
@@ -88,6 +92,7 @@ function renderDrawer() {
     `;
     document.getElementById('langPt').onclick = () => { setLang('pt'); renderAll(); };
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };
+    document.getElementById('splashToggle').onchange = (e) => { setSplashEnabled(e.target.checked); };
     document.getElementById('notifToggle').onchange = async (e) => {
       setNotifPref(e.target.checked);
       if (e.target.checked && 'Notification' in window && Notification.permission === 'default') {

@@ -68,10 +68,12 @@ setInterval(() => {
   if (!isTyping) renderMain();
 }, 30000);
 
-setTimeout(() => {
+(function handleSplash() {
   const splash = document.getElementById('splashScreen');
-  if (splash) {
+  if (!splash) return;
+  if (!splashEnabled()) { splash.remove(); return; }
+  setTimeout(() => {
     splash.classList.add('hide');
     setTimeout(() => splash.remove(), 450);
-  }
-}, 1300);
+  }, 1300);
+})();

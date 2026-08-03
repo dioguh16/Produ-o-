@@ -1,5 +1,5 @@
 // Manter sincronizado com APP_VERSION em constants.js
-const CACHE = 'producao-v1.3';
+const CACHE = 'producao-v1.4';
 const FILES = [
   './index.html', './manifest.json', './icon-192.png', './icon-512.png', './badge-monochrome.png',
   './constants.js', './data.js', './entries.js', './render-main.js',

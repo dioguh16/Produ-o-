@@ -1,7 +1,7 @@
 // Versão atual da app — mostrada no fundo do menu lateral.
 // Atualizar este número sempre que se gera um novo zip de entrega.
 // Convenção do nome do ficheiro entregue: HBW-v<APP_VERSION>.zip (ex.: HBW-v1.2.zip)
-const APP_VERSION = '1.3';
+const APP_VERSION = '1.4';
 
 const STR = {
   pt: {
@@ -39,6 +39,7 @@ const STR = {
     notifEnabled: 'Notificações ativadas',
     reminderBody: 'Hora de registar o valor de metros!',
     menuLang: 'Idioma',
+    splashToggleLabel: 'Animação inicial',
     menuHistory: 'Dias anteriores',
     menuRecords: 'Recordes',
     menuNotes: 'Notas',
@@ -129,6 +130,7 @@ const STR = {
     notifEnabled: 'Benachrichtigungen aktiviert',
     reminderBody: 'Zeit, den Meterstand zu erfassen!',
     menuLang: 'Sprache',
+    splashToggleLabel: 'Start-Animation',
     menuHistory: 'Vorherige Tage',
     menuRecords: 'Rekorde',
     menuNotes: 'Notizen',
@@ -213,4 +215,6 @@ function setLang(l) {
   localStorage.setItem('app-lang', l);
   if (swReg && swReg.active) swReg.active.postMessage({ type: 'SET_LANG', lang: l });
 }
+function splashEnabled() { return localStorage.getItem('splash-enabled') !== 'off'; }
+function setSplashEnabled(v) { localStorage.setItem('splash-enabled', v ? 'on' : 'off'); }
 function t(key) { return STR[lang()][key]; }
