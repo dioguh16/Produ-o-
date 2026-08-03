@@ -42,6 +42,26 @@ document.addEventListener('visibilitychange', () => {
 
 renderAll();
 if (state) scheduleNextReminder(false);
+
+// Atalho da app "Registar produção" (ver manifest.json > shortcuts) —
+// abre a app já com o campo do valor pronto e o teclado ativo.
+(function handleQuickLogShortcut() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('action') !== 'newlog') return;
+  history.replaceState(null, '', window.location.pathname);
+  let attempts = 0;
+  const tryFocus = () => {
+    const el = document.getElementById('newValue') || document.getElementById('firstValue');
+    if (el) {
+      el.focus();
+      el.select();
+      el.scrollIntoView({ block: 'center' });
+    } else if (attempts++ < 20) {
+      setTimeout(tryFocus, 100);
+    }
+  };
+  setTimeout(tryFocus, 400);
+})();
 setInterval(() => {
   const active = document.activeElement;
   const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
