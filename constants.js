@@ -1,8 +1,3 @@
-// Versão atual da app — mostrada no fundo do menu lateral.
-// Atualizar este número sempre que se gera um novo zip de entrega.
-// Convenção do nome do ficheiro entregue: HBW-v<APP_VERSION>.zip (ex.: HBW-v1.2.zip)
-const APP_VERSION = '1.4';
-
 const STR = {
   pt: {
     firstLogTitle: 'Primeiro registo do dia',
@@ -18,8 +13,8 @@ const STR = {
     predictedNowLabel: 'Previsão para agora',
     newLogLabel: 'Novo registo (valor total acumulado)',
     registerBtn: 'Registar',
-    pausaOff: 'Marcar pausa de 30 min',
-    pausaOn: '☕ Pausa registada (−30 min)',
+    pausaOff: 'Marcar pausa de 30 min (10:00 / 18:00)',
+    pausaOn: '☕ Pausa registada',
     historyLabel: 'Histórico de hoje',
     noRecords: 'Sem registos',
     endShiftBtn: 'Terminar turno',
@@ -31,15 +26,14 @@ const STR = {
     promptStart: 'Hora de início',
     promptEnd: 'Hora de fim',
     invalidTime: 'Horário inválido',
-    footerNote: 'Nota: a notificação fixa funciona melhor com a app aberta ou em segundo plano recente. Se o telemóvel poupar bateria de forma agressiva, abra a app de vez em quando para a notificação atualizar.',
+    footerNote: 'Nota: os lembretes horários funcionam melhor com a app aberta ou em segundo plano recente. Se o telemóvel poupar bateria de forma agressiva, abra a app de vez em quando para "apanhar" lembretes em atraso.',
     enableNotif: 'Ativar notificações',
-    enableNotifBanner: 'Ative as notificações para ver o total, a média e a previsão fixos na barra de notificações.',
+    enableNotifBanner: 'Ative as notificações para receber o lembrete a cada hora.',
     invalidValue: 'Introduza um valor válido',
     logged: 'Registado',
     notifEnabled: 'Notificações ativadas',
     reminderBody: 'Hora de registar o valor de metros!',
     menuLang: 'Idioma',
-    splashToggleLabel: 'Animação inicial',
     menuHistory: 'Dias anteriores',
     menuRecords: 'Recordes',
     menuNotes: 'Notas',
@@ -72,9 +66,13 @@ const STR = {
     cancelBtn: 'Cancelar',
     hoursLabel: 'Horas efetivas',
     pausaSince: 'desde',
+    addLogBtn: '+ Adicionar leitura',
+    addLogTitle: 'Adicionar leitura',
+    addLogValueLabel: 'Contagem (metros)',
+    addLogTimeLabel: 'Hora',
     menuNotif: 'Notificações',
-    notifToggleLabel: 'Notificação fixa do turno ativa',
-    notifHelpText: 'Mostra o total, a média e a previsão numa notificação fixa enquanto o turno está aberto. Se recusou a permissão por engano, ative manualmente em: Chrome → ⋮ → Definições do site → Notificações.',
+    notifToggleLabel: 'Lembretes horários ativos',
+    notifHelpText: 'Se recusou a permissão por engano, ative manualmente em: Chrome → ⋮ → Definições do site → Notificações.',
     lowerValueConfirm: 'O valor é menor que o último registo ({v} m). Continuar mesmo assim?',
     menuSummary: 'Resumos',
     tabWeek: 'Semana',
@@ -83,9 +81,6 @@ const STR = {
     summaryAvg: 'Média m/hora',
     summaryNoData: 'Sem dados neste período',
     previousPeriods: 'Períodos anteriores',
-    legendGoalMet: 'Meta atingida',
-    legendBelowGoal: 'Abaixo da meta',
-    legendLow: 'Fraca produção',
     menuData: 'Dados',
     exportBtn: 'Exportar dados (cópia de segurança)',
     exportCsvBtn: 'Exportar CSV (Excel)',
@@ -109,8 +104,8 @@ const STR = {
     predictedNowLabel: 'Prognose für jetzt',
     newLogLabel: 'Neue Erfassung (Gesamtstand)',
     registerBtn: 'Erfassen',
-    pausaOff: '30 Min. Pause markieren',
-    pausaOn: '☕ Pause erfasst (−30 Min.)',
+    pausaOff: '30 Min. Pause markieren (10:00 / 18:00)',
+    pausaOn: '☕ Pause erfasst',
     historyLabel: 'Verlauf heute',
     noRecords: 'Keine Einträge',
     endShiftBtn: 'Schicht beenden',
@@ -122,15 +117,14 @@ const STR = {
     promptStart: 'Startzeit',
     promptEnd: 'Endzeit',
     invalidTime: 'Ungültige Zeit',
-    footerNote: 'Hinweis: Die feste Benachrichtigung funktioniert am zuverlässigsten, wenn die App geöffnet ist oder kürzlich im Hintergrund lief. Bei aggressivem Akkusparen bitte die App gelegentlich öffnen, damit die Benachrichtigung aktualisiert wird.',
+    footerNote: 'Hinweis: Stündliche Erinnerungen funktionieren am zuverlässigsten, wenn die App geöffnet ist oder kürzlich im Hintergrund lief. Bei aggressivem Akkusparen bitte die App gelegentlich öffnen, um verpasste Erinnerungen nachzuholen.',
     enableNotif: 'Benachrichtigungen aktivieren',
-    enableNotifBanner: 'Aktivieren Sie Benachrichtigungen, um Gesamt, Ø und Prognose fest in der Benachrichtigungsleiste zu sehen.',
+    enableNotifBanner: 'Aktivieren Sie Benachrichtigungen für die stündliche Erinnerung.',
     invalidValue: 'Bitte einen gültigen Wert eingeben',
     logged: 'Erfasst',
     notifEnabled: 'Benachrichtigungen aktiviert',
     reminderBody: 'Zeit, den Meterstand zu erfassen!',
     menuLang: 'Sprache',
-    splashToggleLabel: 'Start-Animation',
     menuHistory: 'Vorherige Tage',
     menuRecords: 'Rekorde',
     menuNotes: 'Notizen',
@@ -163,9 +157,13 @@ const STR = {
     cancelBtn: 'Abbrechen',
     hoursLabel: 'Effektive Stunden',
     pausaSince: 'seit',
+    addLogBtn: '+ Eintrag hinzufügen',
+    addLogTitle: 'Eintrag hinzufügen',
+    addLogValueLabel: 'Zählerstand (Meter)',
+    addLogTimeLabel: 'Uhrzeit',
     menuNotif: 'Benachrichtigungen',
-    notifToggleLabel: 'Feste Schicht-Benachrichtigung aktiv',
-    notifHelpText: 'Zeigt Gesamt, Ø und Prognose fest in einer Benachrichtigung, solange die Schicht offen ist. Falls Sie die Berechtigung versehentlich abgelehnt haben: Chrome → ⋮ → Website-Einstellungen → Benachrichtigungen.',
+    notifToggleLabel: 'Stündliche Erinnerungen aktiv',
+    notifHelpText: 'Falls Sie die Berechtigung versehentlich abgelehnt haben: Chrome → ⋮ → Website-Einstellungen → Benachrichtigungen.',
     lowerValueConfirm: 'Der Wert ist niedriger als der letzte Eintrag ({v} m). Trotzdem fortfahren?',
     menuSummary: 'Übersicht',
     tabWeek: 'Woche',
@@ -174,9 +172,6 @@ const STR = {
     summaryAvg: 'Ø Meter/Stunde',
     summaryNoData: 'Keine Daten in diesem Zeitraum',
     previousPeriods: 'Vorherige Zeiträume',
-    legendGoalMet: 'Ziel erreicht',
-    legendBelowGoal: 'Unter dem Ziel',
-    legendLow: 'Geringe Produktion',
     menuData: 'Daten',
     exportBtn: 'Daten exportieren (Sicherung)',
     exportCsvBtn: 'CSV exportieren (Excel)',
@@ -194,6 +189,11 @@ const SHIFTS = [
 ];
 const SHIFT_LENGTH_H = 9;
 const BREAK_H = 0.5;
+// Pausa fixa por turno (horas decimais): manhã 10:00–10:30, tarde 18:00–18:30
+const BREAK_WINDOWS = {
+  manha: { startH: 10, endH: 10.5 },
+  tarde: { startH: 18, endH: 18.5 }
+};
 const DAILY_GOAL = 18000;
 const GOAL_LOW = 16000;
 function goalColor(val) {
@@ -215,6 +215,4 @@ function setLang(l) {
   localStorage.setItem('app-lang', l);
   if (swReg && swReg.active) swReg.active.postMessage({ type: 'SET_LANG', lang: l });
 }
-function splashEnabled() { return localStorage.getItem('splash-enabled') !== 'off'; }
-function setSplashEnabled(v) { localStorage.setItem('splash-enabled', v ? 'on' : 'off'); }
 function t(key) { return STR[lang()][key]; }

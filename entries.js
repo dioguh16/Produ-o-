@@ -6,7 +6,6 @@ let editingNoteId = null;
 let editingPhotos = [];
 let viewingDayKey = null;
 let summaryMode = 'week';
-let summaryMonthOffset = 0; // 0 = mês atual, -1 = mês anterior, etc. (vista de calendário do Resumo)
 
 function showToast(msg) {
   const el = document.getElementById('toast');
@@ -178,3 +177,35 @@ function editSchedule(key, isToday) {
 }
 
 
+
+function addLogToDay(key) {
+  const s = loadState(key);
+  if (!s) return;
+  const pad = (n) => String(n).padStart(2, '0');
+  const endD = new Date(shiftEndMs(s));
+  const lastLog = s.logs && s.logs.length ? s.logs[s.logs.length - 1] : null;
+  const defD = new Date(lastLog ? lastLog.time : shiftEndMs(s));
+  const timeDefault = `${pad(defD.getHours())}:${pad(defD.getMinutes())}`;
+
+  openTimeModal(t('addLogTitle'), [
+    { key: 'value', label: t('addLogValueLabel'), type: 'number', value: '' },
+    { key: 'time', label: t('addLogTimeLabel'), value: timeDefault }
+  ], (values) => {
+    const num = parseInt(values.value, 10);
+    if (isNaN(num) || num < 0) { showToast(t('invalidValue')); return; }
+    const m = /^(\d{1,2}):(\d{2})$/.exec(values.time);
+    if (!m) { showToast(t('invalidTime')); return; }
+    const hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+    if (hh > 23 || mm > 59) { showToast(t('invalidTime')); return; }
+    const d = new Date(s.shiftStart);
+    d.setHours(hh, mm, 0, 0);
+    let ts = d.getTime();
+    if (ts < s.shiftStart) ts += 24 * 3600000; // turno que passa da meia-noite
+    s.logs.push({ time: ts, value: num });
+    s.logs.sort((a, b) => a.time - b.time);
+    saveDayState(key, s);
+    if (key === todayKey()) state = s;
+    showToast(t('logged') + ': ' + num + ' m');
+    renderDrawer();
+  });
+}

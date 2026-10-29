@@ -25,10 +25,35 @@ function shiftStartDate(shift, refDate) {
   return d;
 }
 
+// Janela fixa da pausa (ms) para o dia/turno de um estado; null se não aplicável
+function breakWindow(s) {
+  if (!s || !s.pausa) return null;
+  const w = BREAK_WINDOWS[s.turnoId];
+  if (!w) return null;
+  const base = new Date(s.shiftStart);
+  base.setHours(0, 0, 0, 0);
+  const startMs = base.getTime() + w.startH * 3600000;
+  const endMs = base.getTime() + w.endH * 3600000;
+  return { startMs, endMs };
+}
+// Horas produtivas entre o início do turno e o instante ts (desconta só a parte da pausa já decorrida)
+function productiveHoursAt(s, ts) {
+  let h = (ts - s.shiftStart) / 3600000;
+  const bw = breakWindow(s);
+  if (bw) {
+    const overlap = Math.max(0, Math.min(ts, bw.endMs) - bw.startMs);
+    h -= overlap / 3600000;
+  }
+  return Math.max(h, 0);
+}
+function shiftEndMs(s) { return s.shiftStart + (s.shiftLengthH || SHIFT_LENGTH_H) * 3600000; }
+// Horas produtivas do turno completo (8h30 com pausa, se a pausa cair dentro do horário do turno)
+function effectiveShiftHours(s) { return productiveHoursAt(s, shiftEndMs(s)); }
+
 function computeDayStats(s) {
   const lastLog = s.logs[s.logs.length - 1];
   const total = lastLog.value;
-  const effShiftH = (s.shiftLengthH || SHIFT_LENGTH_H) - (s.pausa ? BREAK_H : 0);
+  const effShiftH = effectiveShiftHours(s);
   const rate = total / effShiftH;
   return { total, rate, turnoLabel: s.turnoLabel, hoursEfetivas: effShiftH };
 }

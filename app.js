@@ -3,14 +3,9 @@ document.getElementById('btnCloseDrawer').onclick = closeDrawer;
 document.getElementById('overlay').onclick = closeDrawer;
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).then(reg => {
+  navigator.serviceWorker.register('service-worker.js').then(reg => {
     swReg = reg;
     if (reg.active) reg.active.postMessage({ type: 'SET_LANG', lang: lang() });
-    updateStatusNotification();
-    reg.update().catch(() => {});
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') reg.update().catch(() => {});
-    });
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       if (newWorker) newWorker.addEventListener('statechange', () => {
@@ -18,8 +13,6 @@ if ('serviceWorker' in navigator) {
       });
     });
   }).catch(() => {});
-
-  navigator.serviceWorker.ready.then(() => updateStatusNotification());
 
   let refreshedOnce = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -42,38 +35,16 @@ document.addEventListener('visibilitychange', () => {
 
 renderAll();
 if (state) scheduleNextReminder(false);
-
-// Atalho da app "Registar produção" (ver manifest.json > shortcuts) —
-// abre a app já com o campo do valor pronto e o teclado ativo.
-(function handleQuickLogShortcut() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('action') !== 'newlog') return;
-  history.replaceState(null, '', window.location.pathname);
-  let attempts = 0;
-  const tryFocus = () => {
-    const el = document.getElementById('newValue') || document.getElementById('firstValue');
-    if (el) {
-      el.focus();
-      el.select();
-      el.scrollIntoView({ block: 'center' });
-    } else if (attempts++ < 20) {
-      setTimeout(tryFocus, 100);
-    }
-  };
-  setTimeout(tryFocus, 400);
-})();
 setInterval(() => {
   const active = document.activeElement;
   const isTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
   if (!isTyping) renderMain();
 }, 30000);
 
-(function handleSplash() {
+setTimeout(() => {
   const splash = document.getElementById('splashScreen');
-  if (!splash) return;
-  if (!splashEnabled()) { splash.remove(); return; }
-  setTimeout(() => {
+  if (splash) {
     splash.classList.add('hide');
     setTimeout(() => splash.remove(), 450);
-  }, 1300);
-})();
+  }
+}, 1300);

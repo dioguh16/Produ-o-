@@ -1,7 +1,6 @@
-// Manter sincronizado com APP_VERSION em constants.js
-const CACHE = 'producao-v1.4';
+const CACHE = 'producao-v25';
 const FILES = [
-  './index.html', './manifest.json', './icon-192.png', './icon-512.png', './badge-monochrome.png',
+  './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './constants.js', './data.js', './entries.js', './render-main.js',
   './reminders.js', './render-drawer.js', './app.js'
 ];
@@ -9,20 +8,8 @@ const FILES = [
 let currentLang = 'pt';
 
 const NOTIF_TEXT = {
-  pt: {
-    title: 'Registo de produção', body: 'Qual o valor total de metros até agora?',
-    action: 'Registar valor', ph: 'metros',
-    savedTitle: 'Valor guardado', savedBody: (v) => `Registado ${v} m — abra a app para confirmar.`,
-    statusTitle: (turno) => `Turno ${turno}`,
-    statusBody: (total, rate, prediction, time) => `Total hoje: ${total} m\nMédia: ${rate} m/h\nPrevisão: ${prediction} m\nAtualizado às ${time}`
-  },
-  de: {
-    title: 'Produktionserfassung', body: 'Wie viele Meter insgesamt bisher?',
-    action: 'Wert erfassen', ph: 'Meter',
-    savedTitle: 'Wert gespeichert', savedBody: (v) => `${v} m erfasst — App öffnen zum Bestätigen.`,
-    statusTitle: (turno) => `Schicht ${turno}`,
-    statusBody: (total, rate, prediction, time) => `Gesamt heute: ${total} m\nØ: ${rate} m/h\nPrognose: ${prediction} m\nAktualisiert um ${time}`
-  }
+  pt: { title: 'Registo de produção', body: 'Qual o valor total de metros até agora?', action: 'Registar valor', ph: 'metros', savedTitle: 'Valor guardado', savedBody: (v) => `Registado ${v} m — abra a app para confirmar.` },
+  de: { title: 'Produktionserfassung', body: 'Wie viele Meter insgesamt bisher?', action: 'Wert erfassen', ph: 'Meter', savedTitle: 'Wert gespeichert', savedBody: (v) => `${v} m erfasst — App öffnen zum Bestätigen.` }
 };
 
 self.addEventListener('install', (event) => {
@@ -48,57 +35,44 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SET_LANG') {
     currentLang = event.data.lang === 'de' ? 'de' : 'pt';
   }
-
-  if (event.data && event.data.type === 'UPDATE_STATUS_NOTIF') {
+  if (event.data && event.data.type === 'SHOW_LOG_REMINDER') {
     const t = NOTIF_TEXT[currentLang];
-    const p = event.data.payload;
-    const timeStr = new Date(p.updatedAt).toLocaleTimeString(currentLang === 'de' ? 'de-DE' : 'pt-PT', { hour: '2-digit', minute: '2-digit' });
-    self.registration.showNotification(t.statusTitle(p.turnoLabel), {
-      body: t.statusBody(p.total, p.rate, p.prediction, timeStr),
-      tag: 'shift-status',
-      renotify: false,
+    self.registration.showNotification(t.title, {
+      body: t.body,
+      tag: 'hourly-log',
+      renotify: true,
       requireInteraction: true,
       icon: 'icon-192.png',
-      badge: 'badge-monochrome.png',
       actions: [
         { action: 'log', type: 'text', title: t.action, placeholder: t.ph }
       ],
-      data: { time: p.updatedAt, status: true }
+      data: { time: Date.now() }
     });
-  }
-
-  if (event.data && event.data.type === 'CLOSE_STATUS_NOTIF') {
-    self.registration.getNotifications({ tag: 'shift-status' }).then((list) => list.forEach((n) => n.close()));
   }
 });
 
 self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
   const t = NOTIF_TEXT[currentLang];
-  const isStatus = event.notification.tag === 'shift-status';
 
   if (event.action === 'log' && event.reply) {
     const value = event.reply.trim();
-    // A notificação fixa não se fecha ao registar por ela — só é substituída
-    // pela versão atualizada assim que a app processar o valor.
-    if (!isStatus) event.notification.close();
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
         if (clients.length > 0) {
           clients[0].postMessage({ type: 'NOTIFICATION_LOG', value });
-          if (!isStatus) clients[0].focus();
+          clients[0].focus();
         } else {
           return self.registration.showNotification(t.savedTitle, {
             body: t.savedBody(value),
             tag: 'pending-log',
             icon: 'icon-192.png',
-            badge: 'badge-monochrome.png',
             data: { pendingValue: value }
           });
         }
       })
     );
   } else {
-    event.notification.close();
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
         if (clients.length > 0) return clients[0].focus();
