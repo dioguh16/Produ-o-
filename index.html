@@ -215,6 +215,22 @@
   .bar-col .bar-value{font-size:0.58rem; color:var(--ink); font-weight:700; margin-bottom:2px; white-space:nowrap;}
   .bar-labels{display:flex; gap:6px; margin-top:4px; overflow-x:auto;}
   .bar-label-item{min-width:26px; flex-shrink:0; text-align:center; font-size:0.6rem; color:var(--muted); white-space:nowrap;}
+  .month-nav{display:flex; align-items:center; justify-content:space-between; margin:12px 0 8px;}
+  .month-nav .mn-label{font-weight:800; font-size:0.95rem; color:var(--ink);}
+  .month-nav button{width:40px; padding:8px 0; background:var(--paper2); color:var(--ink); border:1px solid var(--line); border-radius:10px; font-size:1.1rem; font-weight:800;}
+  .month-nav button:disabled{opacity:0.3;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:14px;}
+  .cal-head{font-size:0.6rem; color:var(--muted); text-align:center; text-transform:uppercase; padding-bottom:2px;}
+  .cal-cell{aspect-ratio:1/1; border-radius:8px; border:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.15; color:var(--muted); font-size:0.7rem;}
+  .cal-cell.has{color:#fff; border-color:transparent; cursor:pointer;}
+  .cal-cell .cal-d{font-size:0.62rem; opacity:0.85;}
+  .cal-cell .cal-v{font-size:0.78rem; font-weight:800;}
+  .cal-cell.today{outline:2px solid var(--ink); outline-offset:1px;}
+  .cal-cell.blank{border:none;}
+  input[type=date]{
+    width:100%; padding:12px; font-size:1.2rem; border-radius:12px; border:2px solid var(--line);
+    background:var(--paper); color:var(--ink); font-family:inherit; margin-bottom:14px;
+  }
   .goal-line{position:absolute; left:0; right:0; border-top:2px dashed var(--ink); opacity:0.55; z-index:0;}
 
   .progress-track{width:100%; height:8px; background:var(--paper2); border-radius:6px; overflow:hidden; margin:2px 0 14px;}

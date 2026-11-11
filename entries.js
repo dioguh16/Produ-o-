@@ -6,6 +6,8 @@ let editingNoteId = null;
 let editingPhotos = [];
 let viewingDayKey = null;
 let summaryMode = 'week';
+let summaryMonthKey = null;   // null = mês atual
+let detailBackView = 'history';
 
 function showToast(msg) {
   const el = document.getElementById('toast');

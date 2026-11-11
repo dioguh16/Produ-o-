@@ -52,15 +52,21 @@ Instalada no telemóvel Android via GitHub Pages (repositório GitHub pessoal,
   turno).
 - **Dias anteriores**: lista de dias fechados, toque para ver detalhe
   completo (editável). No detalhe há "+ Adicionar leitura" (contagem + hora).
+  "+ Criar dia" cria de raiz um dia em falta (data, turno, total, pausa,
+  Probeteile) já fechado, com uma única leitura no fim do turno.
 - **Resumos**: totais semana/mês, gráfico de barras por dia com linha de
   meta, cores por meta, valores em cima das barras, lista de períodos
-  anteriores, barra de progresso face à meta do período.
+  anteriores, barra de progresso face à meta do período. No separador Mês
+  há um **calendário do mês** (cada dia com o total em milhares e a cor da
+  meta; toque abre o detalhe do dia), setas ‹ › para ver meses anteriores e
+  toque nos períodos anteriores para saltar para esse mês.
 - **Recordes**: melhor dia (metros) e melhor média m/hora, só de dias
   fechados.
 - **Notas**: as notas tipo Keep (ver acima).
 - **Dados**: exportar tudo em `.json` (cópia de segurança completa) e em
   `.csv` (uma linha por dia fechado, para abrir em Excel), e importar `.json`
-  para restaurar.
+  para restaurar. **Só o `.json` se importa**; o `.csv` é só para Excel.
+  A importação só escreve as chaves presentes no ficheiro (não apaga o resto).
 
 ## Identidade visual
 
@@ -126,7 +132,6 @@ pastas).
 - Resumo/relatório diário mais rico (produção por hora dentro do dia)
 - Tendências (média 7/30 dias, comparação com período anterior, setas 📈/📉)
 - Insights automáticos em linguagem simples ("hoje está X% acima da média")
-- Calendário visual com cores por dia (considerado dispensável por agora)
 - Animações de UX (contador a subir, vibração em marcos de 25/50/75/100%)
 - Objetivo diário configurável em vez de fixo (considerado desnecessário
   para já — é só o Diogo, numa máquina)

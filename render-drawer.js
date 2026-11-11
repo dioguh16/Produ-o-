@@ -90,7 +90,7 @@ function renderDrawer() {
     document.getElementById('langDe').onclick = () => { setLang('de'); renderAll(); };
     document.getElementById('notifToggle').onchange = (e) => setNotifPref(e.target.checked);
     document.getElementById('goHistory').onclick = () => { view = 'history'; renderDrawer(); };
-    document.getElementById('goSummary').onclick = () => { view = 'summary'; renderDrawer(); };
+    document.getElementById('goSummary').onclick = () => { summaryMonthKey = null; view = 'summary'; renderDrawer(); };
     document.getElementById('goRecords').onclick = () => { view = 'records'; renderDrawer(); };
     document.getElementById('goNotes').onclick = () => { view = 'notes'; renderDrawer(); };
     document.getElementById('goData').onclick = () => { view = 'data'; renderDrawer(); };
@@ -108,11 +108,13 @@ function renderDrawer() {
     content.innerHTML = `
       <div class="back-link" id="backToMenu">${t('menuBack')}</div>
       <h2>${t('menuHistory')}</h2>
+      <button class="btn-secondary" id="btnNewDay" style="margin-bottom:10px;">${t('createDayBtn')}</button>
       ${rows || '<div class="empty-state">' + t('noHistory') + '</div>'}
     `;
     document.getElementById('backToMenu').onclick = () => { view = 'menu'; renderDrawer(); };
+    document.getElementById('btnNewDay').onclick = () => { view = 'new-day'; renderDrawer(); };
     content.querySelectorAll('.day-list-item').forEach(el => {
-      el.onclick = () => { viewingDayKey = el.dataset.key; view = 'day-detail'; renderDrawer(); };
+      el.onclick = () => { viewingDayKey = el.dataset.key; detailBackView = 'history'; view = 'day-detail'; renderDrawer(); };
     });
   }
 
@@ -136,10 +138,61 @@ function renderDrawer() {
         <span class="tiny-link" id="btnEditScheduleDay">${t('editSchedule')}</span>
       </div>
     `;
-    document.getElementById('backToHistory').onclick = () => { view = 'history'; renderDrawer(); };
+    document.getElementById('backToHistory').onclick = () => { view = detailBackView || 'history'; renderDrawer(); };
     wireHistoryActions(document.getElementById('dayDetailHistory'), false, viewingDayKey);
     document.getElementById('btnEditScheduleDay').onclick = () => editSchedule(viewingDayKey, false);
     document.getElementById('btnAddLogDay').onclick = () => addLogToDay(viewingDayKey);
+  }
+
+  else if (view === 'new-day') {
+    const all = scanAllDays();
+    let shiftId = all.length ? all[0].state.turnoId : 'manha';   // por defeito o turno do último dia registado
+    if (!SHIFTS.find(s => s.id === shiftId)) shiftId = 'manha';
+    const defDate = addDaysStr(todayDateStr(), -1);
+    content.innerHTML = `
+      <div class="back-link" id="backToHistoryN">${t('menuBack')}</div>
+      <h2>${t('newDayTitle')}</h2>
+      <div class="time-field-label">${t('newDayDate')}</div>
+      <input type="date" id="ndDate" value="${defDate}" max="${todayDateStr()}">
+      <div class="time-field-label">${t('newDayShift')}</div>
+      <div class="lang-toggle" style="margin-bottom:14px;">
+        ${SHIFTS.map(s => `<button data-shift="${s.id}" class="${s.id === shiftId ? 'active' : ''}">${s.label}</button>`).join('')}
+      </div>
+      <div class="time-field-label">${t('newDayTotal')}</div>
+      <input type="number" id="ndTotal" inputmode="numeric" step="1" min="0" placeholder="ex: 18000" style="margin-bottom:14px;">
+      <label class="checkbox-row" style="margin-bottom:10px;"><input type="checkbox" id="ndPausa"><span>${t('newDayPause')}</span></label>
+      <label class="checkbox-row" style="margin-bottom:18px;"><input type="checkbox" id="ndProbe" checked><span>Probeteile</span></label>
+      <button class="btn-primary" id="btnSaveNewDay">${t('newDaySave')}</button>
+    `;
+    document.getElementById('backToHistoryN').onclick = () => { view = 'history'; renderDrawer(); };
+    content.querySelectorAll('[data-shift]').forEach(b => {
+      b.onclick = () => {
+        shiftId = b.dataset.shift;
+        content.querySelectorAll('[data-shift]').forEach(x => x.classList.toggle('active', x === b));
+      };
+    });
+    document.getElementById('btnSaveNewDay').onclick = () => {
+      const date = document.getElementById('ndDate').value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayDateStr()) { showToast(t('invalidDate')); return; }
+      const total = parseInt(document.getElementById('ndTotal').value, 10);
+      if (isNaN(total) || total < 0) { showToast(t('invalidValue')); return; }
+      const key = DAY_PREFIX + date;
+      if (localStorage.getItem(key) && !confirm(t('dayExistsConfirm'))) return;
+      const shift = SHIFTS.find(s => s.id === shiftId);
+      const [y, m, d] = date.split('-').map(Number);
+      const start = new Date(y, m - 1, d, shift.startH, 0, 0, 0).getTime();
+      const s = {
+        date: key, turnoId: shift.id, turnoLabel: shift.label, shiftLengthH: SHIFT_LENGTH_H,
+        shiftStart: start, pausa: document.getElementById('ndPausa').checked,
+        probeteile: document.getElementById('ndProbe').checked, notes: '',
+        logs: [{ time: start + SHIFT_LENGTH_H * 3600000, value: total }], textNotes: [], closed: true
+      };
+      saveDayState(key, s);
+      if (key === todayKey()) { state = s; renderMain(); }
+      showToast(t('dayCreated'));
+      viewingDayKey = key; detailBackView = 'history'; view = 'day-detail';
+      renderDrawer();
+    };
   }
 
   else if (view === 'records') {
@@ -256,7 +309,8 @@ function renderDrawer() {
     const isWeek = summaryMode === 'week';
     const keyFn = isWeek ? weekStartKey : monthKeyOf;
     const groups = groupBy(list, keyFn);
-    const currentKey = keyFn(todayDateStr());
+    const realCurrentKey = keyFn(todayDateStr());
+    const currentKey = (!isWeek && summaryMonthKey) ? summaryMonthKey : realCurrentKey;
     const currentDays = groups[currentKey] || [];
     const currentAgg = periodAgg(currentDays);
     const periodGoal = currentDays.length * DAILY_GOAL;
@@ -291,11 +345,44 @@ function renderDrawer() {
       <div class="bar-labels">${chartData.map(c => `<div class="bar-label-item">${c.label}</div>`).join('')}</div>
     ` : '';
 
+    // calendário do mês selecionado + navegação entre meses
+    let monthBlock = '';
+    if (!isWeek) {
+      const monthsWithData = Object.keys(groups).sort();
+      const earliest = monthsWithData.length ? monthsWithData[0] : realCurrentKey;
+      const [cy, cm] = currentKey.split('-').map(Number);
+      const dim = new Date(cy, cm, 0).getDate();
+      const offset = (new Date(cy, cm - 1, 1).getDay() + 6) % 7;
+      const byDate = {};
+      currentDays.forEach(d => { byDate[d.dateStr] = d; });
+      const todayStr = todayDateStr();
+      const heads = WEEKDAY_LABELS[lang()].map(l => `<div class="cal-head">${l}</div>`).join('');
+      let cells = '';
+      for (let i = 0; i < offset; i++) cells += '<div class="cal-cell blank"></div>';
+      for (let dnum = 1; dnum <= dim; dnum++) {
+        const ds = `${currentKey}-${String(dnum).padStart(2, '0')}`;
+        const e = byDate[ds];
+        const todayCls = ds === todayStr ? ' today' : '';
+        if (e) {
+          cells += `<div class="cal-cell has${todayCls}" data-key="${DAY_PREFIX + ds}" style="background:${goalColor(e.total)}"><span class="cal-d">${dnum}</span><span class="cal-v">${(e.total / 1000).toFixed(1)}</span></div>`;
+        } else {
+          cells += `<div class="cal-cell${todayCls}"><span class="cal-d">${dnum}</span></div>`;
+        }
+      }
+      monthBlock = `
+        <div class="month-nav">
+          <button id="calPrev" ${currentKey <= earliest ? 'disabled' : ''}>‹</button>
+          <div class="mn-label">${fmtMonthLabel(currentKey)}</div>
+          <button id="calNext" ${currentKey >= realCurrentKey ? 'disabled' : ''}>›</button>
+        </div>
+        <div class="cal-grid">${heads}${cells}</div>`;
+    }
+
     const otherKeys = Object.keys(groups).filter(k => k !== currentKey).sort().reverse().slice(0, 10);
     const prevRows = otherKeys.map(k => {
       const agg = periodAgg(groups[k]);
       const label = isWeek ? `${fmtDate(k)} – ${fmtDate(addDaysStr(k,6))}` : fmtMonthLabel(k);
-      return `<div class="record-row">
+      return `<div class="record-row" ${isWeek ? '' : `data-month="${k}" style="cursor:pointer;"`}>
         <div><div class="stat-label" style="margin:0;">${label}</div></div>
         <div style="text-align:right;">
           <div class="record-val">${agg.total} m</div>
@@ -311,6 +398,7 @@ function renderDrawer() {
         <button class="${isWeek?'active':''}" id="tabWeek">${t('tabWeek')}</button>
         <button class="${!isWeek?'active':''}" id="tabMonth">${t('tabMonth')}</button>
       </div>
+      ${monthBlock}
       <div class="grid2" style="margin:14px 0;">
         <div>
           <div class="stat-label">${t('summaryTotal')}</div>
@@ -326,6 +414,25 @@ function renderDrawer() {
     document.getElementById('backToMenuS').onclick = () => { view = 'menu'; renderDrawer(); };
     document.getElementById('tabWeek').onclick = () => { summaryMode = 'week'; renderDrawer(); };
     document.getElementById('tabMonth').onclick = () => { summaryMode = 'month'; renderDrawer(); };
+    if (!isWeek) {
+      const shiftMonth = (mk, n) => {
+        const [y, m] = mk.split('-').map(Number);
+        const d = new Date(y, m - 1 + n, 1);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      };
+      document.getElementById('calPrev').onclick = () => { summaryMonthKey = shiftMonth(currentKey, -1); renderDrawer(); };
+      document.getElementById('calNext').onclick = () => {
+        const nk = shiftMonth(currentKey, 1);
+        summaryMonthKey = nk >= realCurrentKey ? null : nk;
+        renderDrawer();
+      };
+      content.querySelectorAll('.cal-cell.has').forEach(el => {
+        el.onclick = () => { viewingDayKey = el.dataset.key; detailBackView = 'summary'; view = 'day-detail'; renderDrawer(); };
+      });
+      content.querySelectorAll('.record-row[data-month]').forEach(el => {
+        el.onclick = () => { summaryMonthKey = el.dataset.month >= realCurrentKey ? null : el.dataset.month; renderDrawer(); };
+      });
+    }
   }
 
   else if (view === 'data') {
